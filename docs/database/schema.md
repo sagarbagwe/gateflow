@@ -59,6 +59,9 @@ FKs deliberately do not cascade-delete business history. Account suspension and
 workflow archival precede a separate retention/anonymization policy. The actor
 references survive normal deactivation. Historical display names may change;
 audit snapshots must preserve necessary actor context without storing secrets.
+Audit `resource_type`/`resource_id` is a polymorphic reference, not a foreign key;
+the application must validate resource/tenant ownership and allowed snapshot fields.
+The database cannot infer those rules from an arbitrary action/resource label.
 
 ## Versioning and sequential scope
 

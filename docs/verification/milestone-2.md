@@ -20,9 +20,10 @@ No application, authentication encoder, REST API, frontend, queue, or cache exis
 
 ## Actual results
 
-`bash scripts/test-db.sh` passed **52 checks**: 48 SQL integrity assertions plus
-fresh migration application, Flyway validation, repeat-migrate no-op, and altered
-checksum rejection. This is a storage integration suite, not 52 application tests.
+`bash scripts/test-db.sh` passed **54 checks**: 48 SQL integrity assertions plus
+fresh migration application, Flyway validation, repeat-migrate no-op, altered
+checksum rejection, failed-migration rollback, and post-failure validation.
+This is a storage integration suite, not 54 application tests.
 
 | Verification | Result |
 | --- | --- |
@@ -42,6 +43,9 @@ checksum rejection. This is a storage integration suite, not 52 application test
 | Decision/audit UPDATE, DELETE, TRUNCATE | Rejected |
 | Referenced historical membership deletion | Rejected |
 | Altered COPY of V1 checksum | Validation failed as expected |
+| Intentionally failing copied V4 | DDL rolled back; no probe table or V4 history row remained |
+| Original migration validation after failure | Passed |
+| Helper clean/malformed database override guards | Rejected with exit code 2 |
 | Disposable database cleanup | Passed; zero `gateflow_test_*` databases remain |
 | GateFlow database migrated and validated | Passed: V1/V2/V3 successful |
 | Shell syntax, local docs links, environment references, Compose configuration | Passed |
@@ -50,6 +54,9 @@ SQL fixture writes are rolled back, and the disposable database is dropped on
 exit. The altered checksum test uses copied files; real migration sources are
 never edited for that test. Only the verified schema and permission vocabulary
 were applied to the product database; no user/tenant fixture data was inserted.
+The entire final suite ran again from a second fresh disposable database. The
+intentionally invalid V4 exists only in a temporary test directory, not as a real
+versioned migration. Test sources are unchanged by negative-test copies.
 
 ## Limitations
 

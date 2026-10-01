@@ -114,7 +114,8 @@ exercise business logic or database connectivity.
 
 Run `bash scripts/test-db.sh` for real database integration verification: fresh
 migrations, validation, repeat-migrate no-op, SQL integrity assertions, checksum
-rejection, and automatic disposable-database cleanup. Application/security and
+rejection, failed-migration rollback/revalidation, and automatic disposable-database
+cleanup. Application/security and
 multi-connection concurrency tests will accompany their features; Milestone 13
 expands them.
 

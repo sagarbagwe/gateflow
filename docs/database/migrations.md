@@ -38,7 +38,8 @@ backups and expand/contract changes; a destructive down migration is not the def
 
 The database test helper (added with this milestone's verification) creates a
 randomly named disposable `gateflow_test_*` database, runs migrations, validation,
-repeatability/integrity checks, and drops that test database. It does not clean or
+repeatability/integrity/checksum checks, tests a copied failing migration for
+transactional DDL/history rollback, and drops that test database. It does not clean or
 reset the product database. Fresh-database replay is required evidence for migration
 changes; merely running against an already-migrated DB is insufficient.
 

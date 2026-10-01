@@ -4,7 +4,9 @@ Run `bash scripts/test-db.sh` from the repository root with Docker/Compose and a
 configured `.env`. The helper starts PostgreSQL if needed, creates an isolated
 random test database, applies/validates three Flyway migrations, verifies a second
 migrate is a no-op, runs SQL assertions, tests checksum rejection using copied
-migration files, and drops the disposable database even on failure.
+migration files, intentionally fails a copied V4 to assert transactional DDL/history
+rollback, validates the original sources afterward, and drops the disposable
+database even on failure.
 
 Fixtures live inside one rolled-back transaction. They use deliberately fake hash
 strings, not accounts usable through authentication. The test helper never invokes

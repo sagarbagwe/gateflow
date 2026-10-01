@@ -51,4 +51,24 @@ if docker compose --profile tools run --rm -T \
 fi
 grep -qi 'checksum mismatch' "$test_dir/checksum.log" || { tail -25 "$test_dir/checksum.log"; exit 1; }
 echo 'PASS: altered migration checksum rejected'
+# Prove PostgreSQL transactional DDL leaves neither a table nor failed history row.
+cp -R backend/src/main/resources/db/migration "$test_dir/rollback-migration"
+cat > "$test_dir/rollback-migration/V4__intentional_failure.sql" <<'SQL'
+CREATE TABLE gateflow_rollback_probe (id integer);
+SELECT deliberately_missing_column FROM gateflow_rollback_probe;
+SQL
+if docker compose --profile tools run --rm -T \
+    -e "FLYWAY_URL=jdbc:postgresql://postgres:5432/$test_db" \
+    -v "$test_dir/rollback-migration:/flyway/sql:ro" flyway migrate > "$test_dir/rollback.log" 2>&1; then
+  echo 'FAIL: intentionally invalid migration unexpectedly succeeded' >&2; exit 1
+fi
+grep -qi 'deliberately_missing_column' "$test_dir/rollback.log" || { tail -25 "$test_dir/rollback.log"; exit 1; }
+rollback_state="$(pg -d "$test_db" -Atc \
+  "SELECT to_regclass('public.gateflow_rollback_probe') IS NULL; SELECT count(*) FROM flyway_schema_history WHERE version='4';")"
+[[ "$rollback_state" = $'t\n0' ]] || { echo 'FAIL: failed migration left partial database state' >&2; exit 1; }
+echo 'PASS: failed migration rolls back both DDL and schema-history changes'
+bash scripts/migrate-db.sh validate > "$test_dir/post-failure-validate.log" 2>&1 || {
+  tail -25 "$test_dir/post-failure-validate.log"; exit 1;
+}
+echo 'PASS: original migrations validate after transactional failure'
 echo 'Database suite passed; disposable database will be dropped by cleanup.'
