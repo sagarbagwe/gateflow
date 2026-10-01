@@ -35,8 +35,11 @@ public class RbacController {
     public OrganizationView create(
             @AuthenticationPrincipal UserPrincipal user,
             @Valid @RequestBody CreateOrganization body,
-            HttpServletRequest request) {
-        return organizations.create(user.id(), body, id(request));
+            HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        var result = organizations.create(user.id(), body, id(request));
+        response.setHeader("Location", request.getRequestURI() + "/" + result.id());
+        return result;
     }
 
     @GetMapping
@@ -88,8 +91,11 @@ public class RbacController {
             @AuthenticationPrincipal UserPrincipal user,
             @PathVariable UUID orgId,
             @Valid @RequestBody CreateRole body,
-            HttpServletRequest request) {
-        return roles.create(user.id(), orgId, body, id(request));
+            HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        var result = roles.create(user.id(), orgId, body, id(request));
+        response.setHeader("Location", request.getRequestURI() + "/" + result.id());
+        return result;
     }
 
     @PutMapping(value = "/{orgId}/roles/{roleId}/permissions", consumes = "application/json")

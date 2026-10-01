@@ -30,8 +30,11 @@ public class WorkflowController {
             @AuthenticationPrincipal UserPrincipal user,
             @PathVariable UUID orgId,
             @Valid @RequestBody DefinitionInput body,
-            HttpServletRequest request) {
-        return service.create(user.id(), orgId, body, trace(request));
+            HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        var result = service.create(user.id(), orgId, body, trace(request));
+        response.setHeader("Location", request.getRequestURI() + "/" + result.id());
+        return result;
     }
 
     @GetMapping
@@ -58,8 +61,11 @@ public class WorkflowController {
             @PathVariable UUID orgId,
             @PathVariable UUID id,
             @Valid @RequestBody VersionInput body,
-            HttpServletRequest request) {
-        return service.createVersion(user.id(), orgId, id, body, trace(request));
+            HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        var result = service.createVersion(user.id(), orgId, id, body, trace(request));
+        response.setHeader("Location", request.getRequestURI() + "/" + result.id());
+        return result;
     }
 
     @GetMapping("/{id}/versions/{versionId}")

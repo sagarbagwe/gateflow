@@ -99,7 +99,8 @@ public class ApiExceptionHandler {
     @ExceptionHandler({
         MethodArgumentTypeMismatchException.class,
         ConstraintViolationException.class,
-        MissingRequestHeaderException.class
+        MissingRequestHeaderException.class,
+        org.springframework.web.bind.MissingServletRequestParameterException.class
     })
     public ProblemDetail parameter(HttpServletRequest request) {
         return problems.create(
@@ -139,6 +140,18 @@ public class ApiExceptionHandler {
                     default -> "Request is not supported";
                 };
         return problems.create(request, status, "HTTP_ERROR", detail);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotAcceptableException.class)
+    public void unacceptable(HttpServletRequest request, HttpServletResponse response)
+            throws java.io.IOException {
+        // An unacceptable Accept header must not prevent serializing the error itself.
+        problems.write(
+                request,
+                response,
+                HttpStatus.NOT_ACCEPTABLE,
+                "HTTP_ERROR",
+                "Response media type is not supported");
     }
 
     @ExceptionHandler(DataAccessException.class)

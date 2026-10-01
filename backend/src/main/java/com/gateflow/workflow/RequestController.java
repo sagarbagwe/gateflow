@@ -25,10 +25,16 @@ public class RequestController {
         this.service = service;
     }
 
-    private ResponseEntity<RequestView> result(CommandResult r, boolean created) {
-        return ResponseEntity.status(created && !r.replayed() ? HttpStatus.CREATED : HttpStatus.OK)
-                .header("Idempotent-Replay", Boolean.toString(r.replayed()))
-                .body(r.request());
+    private ResponseEntity<RequestView> result(
+            CommandResult r, boolean created, HttpServletRequest request) {
+        boolean isNew = created && !r.replayed();
+        var response =
+                ResponseEntity.status(isNew ? HttpStatus.CREATED : HttpStatus.OK)
+                        .header("Idempotent-Replay", Boolean.toString(r.replayed()));
+        if (isNew)
+            response.location(
+                    java.net.URI.create(request.getRequestURI() + "/" + r.request().id()));
+        return response.body(r.request());
     }
 
     @PostMapping(consumes = "application/json")
@@ -45,7 +51,8 @@ public class RequestController {
                         UUID.fromString(key),
                         body,
                         WorkflowController.trace(request)),
-                true);
+                true,
+                request);
     }
 
     @GetMapping("/{id}")
@@ -74,7 +81,8 @@ public class RequestController {
                         UUID.fromString(key),
                         body,
                         WorkflowController.trace(request)),
-                false);
+                false,
+                request);
     }
 
     @PostMapping(value = "/{id}/withdraw", consumes = "application/json")
@@ -93,7 +101,8 @@ public class RequestController {
                         UUID.fromString(key),
                         body,
                         WorkflowController.trace(request)),
-                false);
+                false,
+                request);
     }
 
     @PostMapping(value = "/{id}/steps/{stepId}/reassign", consumes = "application/json")
@@ -114,6 +123,7 @@ public class RequestController {
                         UUID.fromString(key),
                         body,
                         WorkflowController.trace(request)),
-                false);
+                false,
+                request);
     }
 }

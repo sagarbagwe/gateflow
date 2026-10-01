@@ -13,6 +13,8 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/api/conventions.md", "docs/api/openapi.md", "docs/api/openapi.json",
+    "docs/verification/milestone-12.md", "docs/decisions/014-api-contract-and-internal-openapi.md",
     "docs/concurrency/consistency.md", "docs/decisions/013-database-authoritative-concurrency.md",
     "docs/verification/milestone-11.md",
     "backend/src/test/java/com/gateflow/workflow/ConcurrencyIntegrationTest.java",

@@ -2,7 +2,7 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 11 — verified database-authoritative concurrency.**
+> **Status: Milestone 12 — stable APIs and protected OpenAPI/Swagger.**
 > Authentication/RBAC, workflows, search, policy cache and event delivery work.
 > In-app inbox/preferences and opt-in email use current access checks and durable jobs.
 > Tenant-wide audit investigation requires AUDIT_VIEW; normal writes remain append-only.
@@ -157,7 +157,7 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-Full Maven verify passes **298 tests** (116 unit, 170 real HTTP/dependency tests,
+M12 full Maven verify passes **313 tests** (119 unit, 182 real HTTP/dependency tests,
 seven PostgreSQL upgrade/index cases, five SMTP adapter checks), zero failures/errors/
 skips, and packages the executable JAR. Seven controlled concurrency races also
 passed three further fresh-container runs (**21 additional executions**).
@@ -280,3 +280,9 @@ Seven observed PostgreSQL lock-barrier races verify single business winners and
 atomic decision/audit/outbox/receipt effects. No redundant distributed locks or
 performance claims. See [consistency contract](docs/concurrency/consistency.md)
 and [Milestone 11 verification](docs/verification/milestone-11.md).
+
+## API contract and Swagger
+
+[Conventions](docs/api/conventions.md), [Swagger setup](docs/api/openapi.md) and
+[generated specification](docs/api/openapi.json). Documentation is disabled by default
+and session-protected when enabled.

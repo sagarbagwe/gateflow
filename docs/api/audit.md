@@ -15,7 +15,8 @@ limit defaults 20, range 1–100; offset defaults 0, range 0–10000.
 Invalid bounds/filter combinations: 400 INVALID_AUDIT_QUERY; malformed UUID/time: 400.
 Parameters are bound, not interpolated into SQL. No user-controlled SQL ordering.
 
-List is a PageSlice: items, limit, offset, hasMore, nextOffset; fetched as limit+1.
+List is a PageSlice: items, limit, offset, hasMore; fetched as limit+1.
+When hasMore, clients compute the next offset as offset+limit.
 Entries contain id, actorKind, actorMembershipId, action, resourceType, resourceId,
 requestId, occurredAt. JSON snapshots are not loaded for lists. Sort: occurredAt
 DESC, id DESC. Offset pages can shift as events arrive; not a consistent export.

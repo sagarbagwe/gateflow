@@ -371,3 +371,11 @@ advisory locks and unique durable receipts protect retries. Definition/version l
 protect publication; notification preferences use conditional compare-and-set.
 Seven server-side database-barrier races verify durable winners and side effects.
 No redundant Redis lock or new migration. See [consistency contract](../concurrency/consistency.md).
+
+## Milestone 12: API contract
+
+Generated OpenAPI is opt-in and session-protected; controllers keep typed success
+bodies and RFC 9457 errors. Central documentation customization describes cookie
+AND CSRF, headers and explicit bounded search keys. Strict duplicate/trailing JSON
+rejection and safe 406 handling close contract gaps. See [conventions](../api/conventions.md)
+and [OpenAPI setup](../api/openapi.md).

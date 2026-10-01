@@ -70,6 +70,7 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
       fail-on-numbers-for-enums: true
+      fail-on-trailing-tokens: true
 gateflow:
   notifications:
     enabled: ${NOTIFICATIONS_ENABLED:false}
@@ -117,3 +118,20 @@ logging:
     org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF
     org.hibernate.SQL: OFF
     org.hibernate.orm.jdbc.bind: OFF
+
+# Internal developer documentation; never silently expose in production.
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+    version: OPENAPI_3_0
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}
+    disable-swagger-default-url: true
+    validator-url: ""
+    persist-authorization: false
+    with-credentials: true
+    csrf:
+      enabled: true
+      header-name: X-XSRF-TOKEN
+  paths-to-match: /api/v1/**
+  override-with-generic-response: false

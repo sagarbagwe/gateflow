@@ -1,6 +1,7 @@
 # Incremental delivery plan
 
-Milestones 1–11 are implemented and verified. Milestone 12 awaits explicit approval. Each major milestone requires user
+Milestones 1–12 are implemented and verified. The user approved all remaining
+milestones; delivery still proceeds sequentially with verification at each step. Each major milestone requires user
 approval after implementation, checks, fixes, and documentation. Tests/security
 invariants start with their features rather than waiting for later review phases.
 
