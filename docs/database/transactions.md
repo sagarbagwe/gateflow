@@ -86,3 +86,11 @@ visibility are resolved within one database snapshot. Query reads generate no
 audit entries and acquire no organization command lock. Each pagination request
 starts a new transaction, so authorization is never frozen in a cursor and pending
 work can change. This is not a cross-page snapshot/export contract.
+
+## M7 cache reads vs writes
+
+Published-policy GET keeps its REPEATABLE_READ authorization/definition/header
+snapshot, then uses cache-aside for step hydration. Redis is not part of a DB commit
+protocol: writes do not populate it, and reads observe only committed published data.
+No cache participates in approval/audit/receipt transactions. Source DB failure
+remains a failed read even if Redis is warm. No new migration or schema table.

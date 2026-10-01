@@ -2,7 +2,8 @@
 
 Java 21, Spring Boot 3.5.16, Maven, PostgreSQL, Hibernate/JPA and targeted JDBC SQL.
 Implemented: browser authentication, organization RBAC, sequential request workflows,
-tenant-safe search/reviewer inbox, and explicit database migrations.
+tenant-safe search/reviewer inbox, bounded published-policy Redis caching, and
+explicit database migrations.
 
 ## Build and test
 
@@ -56,3 +57,7 @@ per-request concurrency and durable command receipts. See [Core API](../docs/api
 
 M6 implements bounded search, filtering, tuple cursor navigation and reviewer inbox.
 See [Search API](../docs/api/search.md) and [verification](../docs/verification/milestone-6.md).
+
+M7 caches authorized published-policy reads only. Core commands and permission
+checks stay PostgreSQL-backed. See [cache contract](../docs/cache/workflow-policy.md)
+and [verification](../docs/verification/milestone-7.md).

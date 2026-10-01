@@ -186,3 +186,27 @@ Tie-breaker is PostgreSQL UUID ordering, not Java UUID signed-long comparison.
 Offset visits preceding candidates O(offset+K) for an aligned traversal and cannot
 provide stable deep navigation. New context digest sorting is bounded by five
 statuses; no handmade balanced tree or artificial DSA library is added.
+
+## M7 cache boundary
+
+| Class | Responsibility |
+| --- | --- |
+| WorkflowCacheProperties | Validated opt-in, TTL/cooldown/UTF-8 byte bounds |
+| WorkflowCacheConfiguration | Explicit Lettuce disconnected-command rejection |
+| RedisPolicyCache | One-key bounded Lua read, atomic SET/TTL, UNLINK, monotonic cooldown |
+| WorkflowCacheCodec | Typed bounded JSON, immutable identity/header and step validation |
+| PublishedWorkflowReader | Cache-aside for the authorized published-policy GET only |
+
+WorkflowService authorizes and checks the active definition before invoking the
+reader. WorkflowRepository separates fresh versionHeader and ordered withSteps;
+ordinary version/published methods used by writes still hydrate PostgreSQL data.
+Constructor injection makes hit/miss/outage behavior independently testable.
+No generic cache framework, Factory or distributed-lock abstraction is necessary.
+
+Native Redis dictionaries provide expected O(1) key lookup; string transfer/JSON/
+validation is O(B+S), byte bound B≤65,536 and S≤50 steps. allkeys-lru uses approximate
+sampling, not an exact application-owned LRU list. TTL expiry and positive jitter
+reduce synchronized refreshes; misses can still duplicate work. No artificial
+handwritten LRU or lock is added to demonstrate DSA. Lua TYPE/STRLEN+bounded GET and
+UNLINK avoid transferring a huge corrupt value or synchronously deleting a large
+wrong-type aggregate. This is a cache-aside pattern, not domain event delivery.

@@ -176,3 +176,10 @@ frontend are deliberately not included in M5.
 Tenant-safe summary search and eligible reviewer inbox are now implemented;
 see [search API](search.md) for scopes, filters, stable tuple pagination, visibility
 and cursor limitations. Detail/commands retain the contracts above.
+
+## Published policy read caching (M7)
+
+The version GET response/status/authorization contract is unchanged. Published
+bodies can be served from Redis only after fresh current source checks; drafts and
+all commands remain DB-backed. No cache-management API or request-search cache.
+See [cache contract](../cache/workflow-policy.md) for expiry, invalidation and outages.

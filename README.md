@@ -2,10 +2,10 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 6 — tenant-safe search and reviewer inbox.**
-> Authentication/RBAC, sequential workflow commands, immutable published policies,
-> durable retries, transactional audit, full-text search, filters and bounded
-> pagination work. Redis, frontend, queues and production deployment remain later milestones.
+> **Status: Milestone 7 — bounded published-policy Redis cache.**
+> Authentication/RBAC, sequential workflows, search/inbox and immutable policy
+> cache-aside reads work. Authorization and commands remain PostgreSQL-backed.
+> Frontend, queues, CI and production deployment remain later milestones.
 
 ## Problem
 
@@ -15,7 +15,7 @@ and a reliable record of decisions.
 
 ## Solution
 
-GateFlow will bind each submitted request to a published workflow version,
+GateFlow binds each submitted request to a published workflow version,
 activate eligible review steps, enforce authorized state transitions, and record
 the outcome. It approves requests; it does not execute payments or provision access.
 
@@ -29,9 +29,11 @@ admin membership, version guards, atomic security audits, unit/HTTP/database/rac
 tests, versioned conditional workflows, concurrency-safe decisions/withdrawal,
 durable idempotency receipts, reviewer reassignment, tenant-safe full-text search,
 active reviewer inbox, status/type/workflow/date filters, bounded cursor/offset
-navigation, additive upgrade checks, and local build/run tooling.
+navigation, additive upgrade checks, published-policy Redis cache-aside with expiry/
+invalidation/outage fallback, bounded authenticated Redis infrastructure, and local
+build/run tooling.
 
-**Planned:** Redis where justified, notification preferences, durable background delivery,
+**Planned:** notification preferences, durable background delivery,
 comprehensive audit browsing/retention, and broader workflow policies. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
@@ -43,9 +45,9 @@ A separate worker deployment from the same codebase is a later scaling option.
 
 ```mermaid
 flowchart LR
-    Browser[React UI - planned] --> API[Spring Boot auth, RBAC and sequential workflow]
+    Browser[React UI - planned] --> API[Spring Boot auth, RBAC, workflows and search]
     API --> DB[(PostgreSQL)]
-    API -. later cache .-> Redis[(Redis)]
+    API -- published policy read cache --> Redis[(Redis)]
     DB -. later outbox publisher .-> Queue[RabbitMQ - later]
     Queue -.-> Worker[Worker - later]
     Worker -.-> Mail[Email provider - later]
@@ -61,7 +63,7 @@ See [system design](docs/architecture/system-design.md).
 | Spring Security | Session authentication, CSRF, authenticated endpoint gate | Implemented with tenant and request-specific policies |
 | JPA/Hibernate, JDBC, PostgreSQL 17 | Relational identity/policy, transactional commands and durable receipts | Implemented core/auth schema |
 | Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
-| Redis | Measured cache use and shared rate limits | Milestone 7 |
+| Redis 7.4.11, Spring Data Redis/Lettuce | Published-policy read cache only; auth rate limits remain PostgreSQL | Milestone 7 implemented |
 | RabbitMQ | Durable background jobs | Milestone 8 |
 | React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
 | JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
@@ -103,9 +105,9 @@ documentation, not a requirement for the user to execute it locally.
 
 ```sh
 cp .env.example .env
-# Edit .env: replace the local PostgreSQL password placeholder.
+# Edit .env: replace both PostgreSQL and URL-safe Redis password placeholders.
 bash scripts/check.sh
-bash scripts/dev-db.sh up
+docker compose up -d --wait
 bash scripts/dev-db.sh status
 bash scripts/migrate-db.sh migrate
 bash scripts/migrate-db.sh validate
@@ -115,7 +117,7 @@ python3 scripts/run-backend.py --jar
 
 The start command rejects the unchanged password placeholder. Alternatively,
 after configuring `.env`, run `docker compose up -d --wait` directly. At this
-milestone Compose starts **only PostgreSQL** unless tools are requested; the
+milestone Compose starts **PostgreSQL and cache-only Redis**; the
 Spring Boot backend is run separately by the development launcher. Full app
 containerization remains Milestone 16.
 
@@ -141,20 +143,24 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: **145 tests** (52 unit,
-89 real HTTP/PostgreSQL, four PostgreSQL migration/index tests), zero failures/skips,
-and packages the executable JAR. The database suite passes **83 checks**.
-**55 packaged workflow/search smoke assertions** and cleanup passed. Five
-pagination/permission-change scenarios passed three extra fresh-database runs.
-See [Milestone 6 evidence](docs/verification/milestone-6.md),
-[core workflow evidence](docs/verification/milestone-5.md),
-[RBAC evidence](docs/verification/milestone-4.md), and
-[authentication evidence](docs/verification/milestone-3.md).
+`bash scripts/test-backend.sh` runs Maven verify: **191 tests** (81 unit,
+106 real HTTP/PostgreSQL/Redis, four PostgreSQL migration/index tests), zero
+failures/errors/skips, and packages the executable JAR. The unchanged database
+suite passes **83 checks**. **32 packaged Redis/API smoke assertions** plus targeted
+cache-key and disposable DB cleanup passed. Failure-sensitive Redis repeat runs
+are recorded in [Milestone 7 evidence](docs/verification/milestone-7.md).
+Earlier [search](docs/verification/milestone-6.md),
+[core workflow](docs/verification/milestone-5.md),
+[RBAC](docs/verification/milestone-4.md) and
+[authentication](docs/verification/milestone-3.md) evidence remains historical.
 
 ## Docker
 
-Local PostgreSQL uses persistent storage, a readiness health check, and a
-loopback-only host port. PostgreSQL and Flyway are pinned to tested image digests;
+Local PostgreSQL uses persistent storage; Redis is a reconstructible 128-MiB
+allkeys-lru cache with no disk persistence. Both use readiness checks and
+authenticated loopback-only host ports. Redis runs unprivileged/read-only with
+dropped capabilities and private tmpfs config. PostgreSQL, Redis and Flyway use
+tested image digests;
 updates require explicit review and migration tests. Flyway is a one-shot tools
 profile, not a long-running application. Application Dockerfiles and a full local
 stack are intentionally deferred. Production image scanning is still future work.
@@ -171,7 +177,9 @@ Seeded PostgreSQL EXPLAIN (ANALYZE, BUFFERS) checks verify rare-term GIN search
 and B-tree feed/deep-cursor index selection on 30,002 records across two tenants
 after normal bulk-load vacuum maintenance. These are structural plan checks,
 not production latency/load benchmarks. Capacity figures remain assumptions.
-Milestone 19 records measured before/after workload results.
+Milestone 19 records measured before/after workload results. Redis hits omit the
+ordered policy-step query, not current authorization/header SQL; no percentage
+speedup is claimed. See [cache contract](docs/cache/workflow-policy.md).
 
 ## Security
 
@@ -179,7 +187,8 @@ Local `.env` is ignored. Passwords use BCrypt cost 12; random session tokens are
 stored only as hashes. Secure-mode cookies use __Host prefixes; CSRF is required
 for all auth, RBAC and workflow writes. Auth rate limits fail closed on storage
 errors. DTOs/errors/logs avoid
-credential disclosure. Live tenant/resource RBAC, delegation ceilings, last-admin
+credential disclosure. Redis failure never bypasses authorization; display caches
+do not drive approval execution. Live tenant/resource RBAC, delegation ceilings, last-admin
 protection, and security audit writes are implemented. Request-specific ownership/assignment
 rules and bounded bodies are implemented. Email verification/recovery, runtime DB
 least privilege, ingress hardening and dependency review remain unfinished.
@@ -225,3 +234,5 @@ Milestone 4 verification: [RBAC evidence and limitations](docs/verification/mile
 Milestone 5 verification: [Core workflow evidence and limitations](docs/verification/milestone-5.md).
 
 Milestone 6 verification: [Search evidence and limitations](docs/verification/milestone-6.md).
+
+Milestone 7 verification: [Redis evidence and limitations](docs/verification/milestone-7.md).

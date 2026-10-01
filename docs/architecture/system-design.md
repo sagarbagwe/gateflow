@@ -287,3 +287,23 @@ V7 backfill/index DDL needs maintenance-window planning on populated deployments
 See [API contract](../api/search.md), [ADR 008](../decisions/008-postgresql-search-keyset.md),
 and [verification](../verification/milestone-6.md). Capacity assumptions elsewhere
 remain assumptions; this milestone does not substantiate production throughput.
+
+## M7 implemented cache path
+
+Only the authorized published-version GET uses Redis for the ordered policy body.
+Fresh PostgreSQL membership/grants, active definition and version header precede
+lookup. Read-only policy DTOs are typed, scoped, size-limited JSON. Database commands,
+auth sessions/limiter, RBAC, request states and search remain PostgreSQL-backed.
+New publication uses a new immutable key; drafts bypass and rollbacks cannot warm.
+
+Dedicated cache-only Redis has loopback-authenticated local access, 128 MiB
+allkeys-lru eviction, no disk persistence, atomic expiry with jitter, short client
+timeouts, disconnected-command rejection and per-process cooldown/fallback. Losing
+Redis does not lose product data or grant access; PostgreSQL load rises. In-flight
+misses can fill redundantly and recovery is not a distributed single-probe breaker.
+Future replicas can share keys; advanced topology/TLS/ACL/managed service choices
+are deployment work, not achieved by a local Compose container.
+
+See [cache contract](../cache/workflow-policy.md), [ADR](../decisions/009-published-policy-cache.md)
+and [evidence](../verification/milestone-7.md). This removes ordered-step hydration
+on hits, not all source queries. No measured production latency/scalability claim.

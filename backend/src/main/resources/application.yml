@@ -8,6 +8,18 @@ server:
 spring:
   application:
     name: gateflow
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:200ms}
+      timeout: ${REDIS_COMMAND_TIMEOUT:250ms}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+      repositories:
+        enabled: false
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -31,6 +43,12 @@ spring:
       fail-on-unknown-properties: true
       fail-on-numbers-for-enums: true
 gateflow:
+  cache:
+    workflow:
+      enabled: ${PUBLISHED_POLICY_CACHE_ENABLED:false}
+      ttl: ${PUBLISHED_POLICY_CACHE_TTL:PT10M}
+      failure-cooldown: ${PUBLISHED_POLICY_CACHE_COOLDOWN:PT5S}
+      max-bytes: ${PUBLISHED_POLICY_CACHE_MAX_BYTES:65536}
   rbac:
     max-organizations-per-user: ${RBAC_ORG_LIMIT:10}
     max-roles-per-organization: ${RBAC_ROLE_LIMIT:100}

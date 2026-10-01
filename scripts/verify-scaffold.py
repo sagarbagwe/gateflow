@@ -13,6 +13,8 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/cache/workflow-policy.md", "docs/decisions/009-published-policy-cache.md",
+    "docs/verification/milestone-7.md",
     "docs/api/search.md", "docs/decisions/008-postgresql-search-keyset.md",
     "docs/verification/milestone-6.md",
     "backend/src/main/resources/db/migration/V7__add_request_search.sql",
@@ -51,6 +53,10 @@ check(env["POSTGRES_PASSWORD"] == "replace-with-a-unique-local-password",
       "environment template contains a placeholder, not a credential")
 check('127.0.0.1:${POSTGRES_PORT:-5432}:5432' in compose,
       "database host binding is loopback-only")
+check('127.0.0.1:${REDIS_PORT:-6379}:6379' in compose, "Redis host binding is loopback-only")
+check(env["REDIS_PASSWORD"] == "replace-with-a-unique-redis-password", "Redis example password is a placeholder")
+check('maxmemory 128mb' in compose and 'maxmemory-policy allkeys-lru' in compose,
+      "Redis cache has bounded memory and reconstructible-data eviction policy")
 check('postgres_data:/var/lib/postgresql/data' in compose,
       "PostgreSQL 17 data directory has a named volume")
 check('pg_isready' in compose and '$$POSTGRES_USER' in compose

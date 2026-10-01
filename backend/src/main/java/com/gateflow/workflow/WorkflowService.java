@@ -18,16 +18,19 @@ public class WorkflowService {
     private final AuthorizationService authorization;
     private final RoleService roles;
     private final TenantAuditWriter audit;
+    private final PublishedWorkflowReader reader;
 
     public WorkflowService(
             WorkflowRepository repository,
             AuthorizationService authorization,
             RoleService roles,
-            TenantAuditWriter audit) {
+            TenantAuditWriter audit,
+            PublishedWorkflowReader reader) {
         this.repository = repository;
         this.authorization = authorization;
         this.roles = roles;
         this.audit = audit;
+        this.reader = reader;
     }
 
     @Transactional
@@ -65,7 +68,7 @@ public class WorkflowService {
     public VersionView version(UUID user, UUID org, UUID id, UUID version) {
         authorization.require(user, org, WORKFLOW_VIEW);
         repository.definition(org, id, false);
-        return repository.version(org, id, version, false);
+        return reader.read(org, id, version);
     }
 
     @Transactional

@@ -35,7 +35,7 @@ public class WorkflowRepository {
         UUID id = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO workflow_definitions(id,organization_id,name,description)"
-                    + " VALUES(?,?,?,?)",
+                        + " VALUES(?,?,?,?)",
                 id,
                 org,
                 b.name().trim(),
@@ -47,7 +47,7 @@ public class WorkflowRepository {
         var rows =
                 jdbc.query(
                         "SELECT id,name,description FROM workflow_definitions WHERE"
-                            + " organization_id=? AND id=? AND archived_at IS NULL"
+                                + " organization_id=? AND id=? AND archived_at IS NULL"
                                 + (lock ? " FOR UPDATE" : ""),
                         (rs, n) ->
                                 new DefinitionView(
@@ -63,7 +63,7 @@ public class WorkflowRepository {
     public List<DefinitionView> page(UUID org, int limit, int offset) {
         return jdbc.query(
                 "SELECT id,name,description FROM workflow_definitions WHERE organization_id=? AND"
-                    + " archived_at IS NULL ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?",
+                        + " archived_at IS NULL ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?",
                 (rs, n) ->
                         new DefinitionView(
                                 rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3)),
@@ -76,7 +76,7 @@ public class WorkflowRepository {
         int next =
                 jdbc.queryForObject(
                         "SELECT COALESCE(max(version_number),0)+1 FROM workflow_versions WHERE"
-                            + " organization_id=? AND workflow_definition_id=?",
+                                + " organization_id=? AND workflow_definition_id=?",
                         Integer.class,
                         org,
                         definition);
@@ -93,7 +93,7 @@ public class WorkflowRepository {
         return id;
     }
 
-    public VersionView version(UUID org, UUID definition, UUID id, boolean lock) {
+    public VersionView versionHeader(UUID org, UUID definition, UUID id, boolean lock) {
         var rows =
                 jdbc.query(
                         "SELECT"
@@ -114,7 +114,14 @@ public class WorkflowRepository {
                         definition,
                         id);
         if (rows.isEmpty()) throw missing("WORKFLOW_VERSION_NOT_FOUND");
-        var v = rows.getFirst();
+        return rows.getFirst();
+    }
+
+    public VersionView version(UUID org, UUID definition, UUID id, boolean lock) {
+        return withSteps(org, versionHeader(org, definition, id, lock));
+    }
+
+    public VersionView withSteps(UUID org, VersionView v) {
         return new VersionView(
                 v.id(),
                 v.workflowDefinitionId(),
@@ -122,7 +129,7 @@ public class WorkflowRepository {
                 v.status(),
                 v.version(),
                 v.publishedAt(),
-                steps(org, id));
+                steps(org, v.id()));
     }
 
     public VersionView published(UUID org, UUID id) {
@@ -146,7 +153,7 @@ public class WorkflowRepository {
     private List<WorkflowStep> steps(UUID org, UUID version) {
         return jdbc.query(
                 "SELECT id,position,name,approver_role_id,conditions::text FROM workflow_steps"
-                    + " WHERE organization_id=? AND workflow_version_id=? ORDER BY position",
+                        + " WHERE organization_id=? AND workflow_version_id=? ORDER BY position",
                 (rs, n) ->
                         new WorkflowStep(
                                 rs.getObject(1, UUID.class),
@@ -161,7 +168,7 @@ public class WorkflowRepository {
     public void replace(UUID org, UUID id, long expected, List<StepInput> steps) {
         if (jdbc.update(
                         "UPDATE workflow_versions SET row_version=row_version+1 WHERE"
-                            + " organization_id=? AND id=? AND row_version=?",
+                                + " organization_id=? AND id=? AND row_version=?",
                         org,
                         id,
                         expected)

@@ -119,3 +119,23 @@ repeat filters/scope on continuation. See [API](api/search.md) and
 `RequestSearchPostgresTest` writes generated EXPLAIN evidence under
 `backend/target/query-plans/`; it tests a two-tenant synthetic fixture, not production
 capacity. Normal VACUUM/ANALYZE after bulk insertion matters for GIN plan selection.
+
+## M7 Redis dependency and opt-in
+
+Update ignored `.env` with the new REDIS_PASSWORD/REDIS_PORT entries from the
+example; generate a distinct URL-safe Redis password rather than reuse PostgreSQL
+credentials. `docker compose up -d --wait` now starts PostgreSQL and Redis.
+`bash scripts/dev-db.sh up` remains PostgreSQL-only. The backend/UI are still not
+Compose services (full containerization is M16).
+
+`python3 scripts/run-backend.py --jar` resolves both private services in memory
+and enables published-policy caching by default. It rejects the Redis placeholder;
+set PUBLISHED_POLICY_CACHE_ENABLED=false to explicitly disable. Direct application
+startup defaults the feature false and needs only PostgreSQL for core behavior.
+Redis unavailable with the feature enabled is a DB fallback, not a startup requirement.
+Never print resolved Compose config, environment values or Redis credentials.
+
+Full Maven verify now includes fresh authenticated Redis/Testcontainers fixtures.
+The eviction/OOM/paused-server tests change only their disposable test container,
+restore configuration/unpause in finally, and remove entire containers at cleanup.
+See [cache](cache/workflow-policy.md) and [verification](verification/milestone-7.md).
