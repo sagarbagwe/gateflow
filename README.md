@@ -2,7 +2,7 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 10 — protected audit browsing and bounded evidence.**
+> **Status: Milestone 11 — verified database-authoritative concurrency.**
 > Authentication/RBAC, workflows, search, policy cache and event delivery work.
 > In-app inbox/preferences and opt-in email use current access checks and durable jobs.
 > Tenant-wide audit investigation requires AUDIT_VIEW; normal writes remain append-only.
@@ -157,11 +157,13 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-M10 full Maven verify passed **290 tests** and packaged the executable JAR; one
-additional populated V10→V11 upgrade test passed separately (**291 distinct tests**).
-The database suite passed **128 checks** and the packaged application passed **102 assertions**.
-See [Milestone 10 evidence](docs/verification/milestone-10.md).
-Earlier notification/event verification remains in [Milestone 9 evidence](docs/verification/milestone-9.md).
+Full Maven verify passes **298 tests** (116 unit, 170 real HTTP/dependency tests,
+seven PostgreSQL upgrade/index cases, five SMTP adapter checks), zero failures/errors/
+skips, and packages the executable JAR. Seven controlled concurrency races also
+passed three further fresh-container runs (**21 additional executions**).
+M10 database integrity passes **128 checks**; final packaged app passes **100 assertions**.
+See [Milestone 11 evidence](docs/verification/milestone-11.md) and
+[Milestone 10 audit evidence](docs/verification/milestone-10.md).
 Earlier Redis verification remains in [Milestone 7 evidence](docs/verification/milestone-7.md).
 Earlier [search](docs/verification/milestone-6.md),
 [core workflow](docs/verification/milestone-5.md),
@@ -271,3 +273,10 @@ Milestone 7 verification: [Redis evidence and limitations](docs/verification/mil
 
 See [API](docs/api/audit.md), [evidence/trust boundary](docs/audit/evidence.md)
 and [Milestone 10 verification](docs/verification/milestone-10.md).
+
+## Concurrency correctness
+
+Seven observed PostgreSQL lock-barrier races verify single business winners and
+atomic decision/audit/outbox/receipt effects. No redundant distributed locks or
+performance claims. See [consistency contract](docs/concurrency/consistency.md)
+and [Milestone 11 verification](docs/verification/milestone-11.md).

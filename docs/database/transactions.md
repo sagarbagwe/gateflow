@@ -121,3 +121,11 @@ reads current preferences/access/action/age/address before SMTP outside transact
 Provider acceptance and final DB commit are not atomic: lost final commits/expired
 external leases become UNKNOWN, never an automatic resend. No DB lock is held over
 SMTP and no exactly-once external effect is claimed.
+
+## Milestone 11: concurrency verification
+
+Aggregate row locks and expectedVersion protect state transitions; scoped transaction
+advisory locks and unique durable receipts protect retries. Definition/version locks
+protect publication; notification preferences use conditional compare-and-set.
+Seven server-side database-barrier races verify durable winners and side effects.
+No redundant Redis lock or new migration. See [consistency contract](../concurrency/consistency.md).

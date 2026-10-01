@@ -261,3 +261,11 @@ and executes tenant-scoped, metadata-only queries. AuditData validates new evide
 and sanitizes legacy snapshots. TenantAuditWriter stays transaction-mandatory.
 V11 adds new-write snapshot bounds and tenant actor/action time indexes; no tables.
 See [audit evidence](../audit/evidence.md) and [audit API](../api/audit.md).
+
+## Milestone 11: concurrency verification
+
+Aggregate row locks and expectedVersion protect state transitions; scoped transaction
+advisory locks and unique durable receipts protect retries. Definition/version locks
+protect publication; notification preferences use conditional compare-and-set.
+Seven server-side database-barrier races verify durable winners and side effects.
+No redundant Redis lock or new migration. See [consistency contract](../concurrency/consistency.md).

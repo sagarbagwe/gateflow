@@ -13,6 +13,9 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/concurrency/consistency.md", "docs/decisions/013-database-authoritative-concurrency.md",
+    "docs/verification/milestone-11.md",
+    "backend/src/test/java/com/gateflow/workflow/ConcurrencyIntegrationTest.java",
     "docs/api/audit.md", "docs/audit/evidence.md",
     "docs/decisions/012-audit-evidence-and-privileged-browsing.md", "docs/verification/milestone-10.md",
     "backend/src/main/resources/db/migration/V11__harden_audit_evidence.sql",
