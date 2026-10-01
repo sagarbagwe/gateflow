@@ -2,9 +2,9 @@
 
 ## Current prerequisites
 
-Git, Docker Engine/Desktop with Docker Compose v2 supporting `up --wait`, and
-Python 3. Java 21 and Maven will become prerequisites when the backend build is
-introduced. No application build exists in Milestone 1.
+Git, Docker/Compose v2 supporting `up --wait`, Python 3, Java 21 and Maven 3.8+.
+The backend build was introduced in M3. Authentication and database verification
+were run by the agent; these commands document how to reproduce them.
 
 ## Start
 
@@ -39,6 +39,24 @@ volume persistence also passed; see [verification evidence](verification/milesto
 Migrations now exist; run `bash scripts/test-db.sh` for the real database
 integrity/replay/checksum suite. It creates and cleans up only a disposable database.
 
+## Backend build and local launch
+
+```sh
+bash scripts/test-backend.sh
+python3 scripts/run-backend.py --jar
+```
+
+Maven verify runs unit and real HTTP/Testcontainers tests and packages the JAR.
+Tests fail if Docker is unavailable. The local-only launcher resolves credentials
+from Compose in memory, never prints them, binds 127.0.0.1 and permits local HTTP
+cookies. It is not the production entrypoint. Without --jar it runs Maven's
+spring-boot:run goal. See [backend setup](../backend/README.md) for environment names.
+
+The agent sandbox uses a non-default Docker Unix socket and explicit Java 21 path;
+those paths are not hardcoded into project scripts. Standard Docker installations
+do not need overrides. Custom setups can provide DOCKER_HOST and, when necessary,
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE / TESTCONTAINERS_HOST_OVERRIDE.
+
 ## Stop / inspect
 
 ```sh
@@ -58,8 +76,9 @@ PostgreSQL volume. Back up anything needed first; never use this on production.
 - `.env.example`: tracked variable names and non-production placeholders.
 - `.env`: local values, ignored by Git.
 - Production: managed secrets and restricted networking; not this Compose file.
-- No Redis, RabbitMQ, API, or UI services exist yet. Flyway is available as a
-  one-shot tools profile, and PostgreSQL/Flyway images are digest-pinned.
+- Authentication APIs exist as a separately launched Spring Boot process. No
+  Redis, RabbitMQ, workflow APIs, or UI exist yet. Flyway is a one-shot tools profile;
+  PostgreSQL/Flyway images are digest-pinned.
 
 ## Verification rules
 

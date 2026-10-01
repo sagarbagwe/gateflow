@@ -40,6 +40,15 @@ Equality columns precede ordering columns. A partial index requires a query
 predicate implying `state = 'ACTIVE'`; arbitrary prepared query shapes may not use
 it. Inspect actual execution plans instead of assuming index selection.
 
+## Authentication additions (M3)
+
+`auth_sessions.token_hash` has a UNIQUE index for exact credential lookup.
+`ix_auth_sessions_active_user` supports active-user session inspection;
+`ix_auth_sessions_expiry` supports expiration cleanup. Rate bucket key hash is
+its PK; `ix_auth_rate_limit_window` supports stale-bucket cleanup. Account login
+uses `lower(email)` explicitly so its query matches the existing unique expression
+index. No measured performance improvement is claimed.
+
 ## Future list query and pagination
 
 ```sql

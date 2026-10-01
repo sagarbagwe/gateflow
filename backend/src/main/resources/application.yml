@@ -1,0 +1,45 @@
+server:
+  forward-headers-strategy: none
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  application:
+    name: gateflow
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    clean-disabled: true
+    baseline-on-migrate: false
+    out-of-order: false
+    validate-migration-naming: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+gateflow:
+  auth:
+    session-ttl: ${AUTH_SESSION_TTL:PT12H}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    login-limit: ${AUTH_LOGIN_LIMIT:10}
+    signup-limit: ${AUTH_SIGNUP_LIMIT:5}
+    rate-window: ${AUTH_RATE_WINDOW:PT1M}
+
+logging:
+  level:
+    # Raw JDBC errors may include identifying values from unique-key violations.
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF

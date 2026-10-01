@@ -27,6 +27,7 @@ reviewed operator procedure.
 - V2: workflow publication/immutability, submitted-request binding, append-only
   decision and audit guards.
 - V3: twelve permission codes; no accounts, organization roles, or assignments.
+- V4: global opaque auth sessions and shared fixed-window auth counters (M3).
 
 Flyway creates its own `flyway_schema_history` table, separate from domain tables.
 Do not edit an applied migration. Add a new version. Validation must reject checksum
@@ -47,6 +48,6 @@ changes; merely running against an already-migrated DB is insufficient.
 
 Local PostgreSQL user is the development superuser. Production must use separate
 migration/runtime identities and managed secrets; runtime DDL and audit mutation
-must be denied. This milestone does not deploy production or configure a runtime
-application account. The schema is sequential single-reviewer approval; future
+must be denied. Authentication now exists, but production runtime DB role provisioning and
+deployment are still not implemented. The schema is sequential single-reviewer approval; future
 parallel approval requires deliberate migrations and application compatibility.

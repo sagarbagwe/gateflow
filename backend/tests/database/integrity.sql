@@ -39,9 +39,11 @@ DECLARE
     affected integer;
 BEGIN
     PERFORM pg_temp.assert_true('twelve permission codes seeded', (SELECT count(*) = 12 FROM permissions));
-    PERFORM pg_temp.assert_true('fourteen domain tables created',
+    PERFORM pg_temp.assert_true('fourteen core domain tables created',
         (SELECT count(*) = 14 FROM information_schema.tables
-         WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> 'flyway_schema_history'));
+         WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name IN ('users','organizations','memberships','roles','permissions','membership_roles',
+             'role_permissions','workflow_definitions','workflow_versions','workflow_steps','requests',
+             'request_steps','approval_decisions','audit_logs')));
     INSERT INTO organizations (id, name, slug) VALUES (org_a, 'Tenant A', 'test-tenant-a'), (org_b, 'Tenant B', 'test-tenant-b');
     INSERT INTO users (id, email, display_name, password_hash) VALUES
         (user_a, 'member.a@example.test', 'A', 'test-fixture-not-a-real-password-hash'),
@@ -159,6 +161,19 @@ BEGIN
         format('DELETE FROM audit_logs WHERE id=%L',audit_a), '55000');
     PERFORM pg_temp.expect_failure('audit truncation rejected', 'TRUNCATE audit_logs', '55000');
     PERFORM pg_temp.assert_true('valid audit record preserved', (SELECT action='REQUEST_SUBMITTED' FROM audit_logs WHERE id=audit_a));
+    IF to_regclass('public.auth_sessions') IS NOT NULL THEN
+        PERFORM pg_temp.expect_failure('session nonhex hash rejected',
+            format('INSERT INTO auth_sessions(user_id,token_hash,expires_at) VALUES (%L,%L,now()+interval ''1 hour'')',user_a,repeat('z',64)), '23514');
+        PERFORM pg_temp.expect_failure('session expiry before creation rejected',
+            format('INSERT INTO auth_sessions(user_id,token_hash,expires_at) VALUES (%L,%L,now()-interval ''1 hour'')',user_a,repeat('a',64)), '23514');
+        PERFORM pg_temp.expect_failure('session missing user rejected',
+            format('INSERT INTO auth_sessions(user_id,token_hash,expires_at) VALUES (%L,%L,now()+interval ''1 hour'')',gen_random_uuid(),repeat('a',64)), '23503');
+        INSERT INTO auth_sessions(user_id,token_hash,expires_at) VALUES(user_a,repeat('a',64),now()+interval '1 hour');
+        PERFORM pg_temp.expect_failure('duplicate session hash rejected',
+            format('INSERT INTO auth_sessions(user_id,token_hash,expires_at) VALUES (%L,%L,now()+interval ''1 hour'')',user_a,repeat('a',64)), '23505');
+        PERFORM pg_temp.expect_failure('zero limiter counter rejected',
+            format('INSERT INTO auth_rate_limit_buckets VALUES (%L,now(),0)',repeat('a',64)), '23514');
+    END IF;
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;

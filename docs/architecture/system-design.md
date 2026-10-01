@@ -1,8 +1,9 @@
 # System design
 
-Status: architecture direction with Milestone 2 database implementation. The
-repository scaffold, PostgreSQL setup, core schema, Flyway migrations, and storage
-integrity tests exist. The application, UI, cache, broker, and worker are not built.
+Status: architecture direction with M3 authentication backend. The repository,
+PostgreSQL/core/auth schema, Flyway migrations, Spring Boot authentication APIs,
+and storage/security tests exist. Organization RBAC, workflow engine, UI, cache,
+broker, and worker are not built.
 Dashed/future components below remain plans.
 
 Implemented storage model: [schema](../database/schema.md),
@@ -63,9 +64,9 @@ for the first product. A development email sink precedes any live email provider
 
 ```mermaid
 flowchart TD
-    UI[Browser SPA - planned] --> API[HTTP API - planned]
-    API --> AUTH[Authentication and authorization]
-    AUTH --> DOMAIN[Application and domain modules]
+    UI[Browser SPA - planned] --> API[HTTP API - auth implemented]
+    API --> AUTH[Authentication now / product RBAC later]
+    AUTH --> DOMAIN[Auth services now / request modules later]
     DOMAIN --> PG[(PostgreSQL)]
     DOMAIN -. cached definitions later .-> REDIS[(Redis)]
     PG -. committed outbox later .-> PUB[Outbox publisher]
@@ -182,8 +183,9 @@ explicit rejection policy during implementation.
    authorization-sensitive reads use the primary.
 7. Partition/archive audit data only after measuring growth and access patterns.
 
-A future web session strategy must work across replicas; in-memory sessions alone
-would violate step 3. No Kubernetes, sharding, or microservices are required now.
+Implemented M3 sessions are PostgreSQL-backed and restored per request, so
+replicas do not depend on in-memory/servlet sessions. Shared rate counters use
+atomic DB upserts. No Kubernetes, sharding, or microservices are required now.
 
 ## Reliability and failure behavior
 
@@ -217,7 +219,8 @@ make the API unready. Dashboards and alert thresholds follow actual baselines.
 Explicit tenant/resource authorization, secure password hashing, input bounds,
 TLS at ingress, CSRF protection when cookie credentials are used, least-privilege
 DB access, secrets management, non-sensitive logs, and dependency scanning are
-required. Authentication token/session strategy is an ADR at Milestone 3.
+required. Authentication uses opaque hashed database sessions; see
+[ADR 005](../decisions/005-cookie-sessions.md).
 Local development credentials and exposed localhost ports are not an AWS design.
 Cloud service selection, restore drills, SLOs, cost estimates, and rollback strategy
 follow in the cloud/security milestones before any production claim.

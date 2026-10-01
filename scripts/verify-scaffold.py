@@ -28,6 +28,9 @@ required = [
     "backend/src/main/resources/db/migration/V1__create_core_schema.sql",
     "backend/src/main/resources/db/migration/V2__enforce_workflow_and_audit_integrity.sql",
     "backend/src/main/resources/db/migration/V3__seed_permission_catalog.sql",
+    "backend/pom.xml", "backend/README.md", "scripts/test-backend.sh", "scripts/run-backend.py",
+    "docs/api/authentication.md", "docs/architecture/lld.md",
+    "docs/decisions/005-cookie-sessions.md", "docs/verification/milestone-3.md",
 ]
 check(all((ROOT / f).is_file() for f in required), "required scaffold files exist")
 compose = (ROOT / "docker-compose.yml").read_text()
@@ -50,5 +53,7 @@ for document in sorted(ROOT.rglob("*.md")):
         target = destination.split("#", 1)[0]
         check((document.parent / target).exists(),
               f"local documentation link resolves: {document.relative_to(ROOT)} -> {target}")
-check(not (ROOT / "backend/pom.xml").exists(), "application build not prematurely introduced")
+check((ROOT / "backend/pom.xml").is_file(), "backend build descriptor exists")
+check((ROOT / "backend/src/main/resources/db/migration/V4__create_authentication_storage.sql").is_file(),
+      "authentication storage migration exists")
 print("Static scaffold checks complete; no runtime behavior verified.")

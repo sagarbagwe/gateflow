@@ -2,12 +2,13 @@
 
 Mermaid renders on GitHub. Every tenant-owned relationship also uses tenant-aware
 composite foreign keys; arrows alone do not show all composite key columns.
-Draft requests may be unbound until submission. No notification/outbox/auth-session
-tables have been introduced early.
+Draft requests may be unbound until submission. M3 adds global auth-session and
+rate-limit storage. Notification/outbox tables remain deferred.
 
 ```mermaid
 erDiagram
     USERS ||--o{ MEMBERSHIPS : joins
+    USERS ||--o{ AUTH_SESSIONS : authenticates
     ORGANIZATIONS ||--o{ MEMBERSHIPS : has
     ORGANIZATIONS ||--o{ ROLES : owns
     MEMBERSHIPS ||--o{ MEMBERSHIP_ROLES : receives
@@ -29,6 +30,18 @@ erDiagram
     ORGANIZATIONS ||--o{ AUDIT_LOGS : evidence
     MEMBERSHIPS o|--o{ AUDIT_LOGS : user_actor
 
+    AUTH_SESSIONS {
+        uuid id PK
+        uuid user_id FK
+        char token_hash UK
+        timestamptz expires_at
+        timestamptz revoked_at
+    }
+    AUTH_RATE_LIMIT_BUCKETS {
+        char key_hash PK
+        timestamptz window_started_at
+        int attempts
+    }
     USERS {
         uuid id PK
         varchar email UK

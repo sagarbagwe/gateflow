@@ -1,7 +1,8 @@
 # Database design
 
-Milestone 2: PostgreSQL relational schema and Flyway migrations. No application
-API, authentication implementation, RBAC enforcement, or workflow engine exists yet.
+Current schema: fourteen M2 core tables plus two M3 authentication storage tables.
+Authentication APIs now exist. Organization RBAC and workflow execution APIs are
+not implemented. V1–V3 remain unchanged; V4 adds authentication storage.
 
 ## Modeling choices
 
@@ -31,6 +32,8 @@ validate the ISO currency catalog, or execute payments.
 | request_steps | Execution instances of steps from exactly the request's pinned version |
 | approval_decisions | One immutable decision per sequential step by its assigned reviewer |
 | audit_logs | Append-only action evidence, actor, resource, old/new redacted snapshots, correlation ID |
+| auth_sessions | Global user sessions; unique SHA-256 token hash, absolute expiry, revocation |
+| auth_rate_limit_buckets | Shared fixed-window auth counters keyed by pseudonymous scope hash |
 
 See [ER diagram](er-diagram.md), [index strategy](indexes.md),
 [transaction boundaries](transactions.md), and [migration operations](migrations.md).
@@ -102,11 +105,13 @@ superuser; do not use it as the production application identity.
 
 No bootstrap accounts, plaintext passwords, organization grants, or fake audit
 history are seeded. The password-hash length constraint is only a storage guard;
-it does not prove secure hashing. Authentication will supply a real encoder at M3.
+it does not prove secure hashing. M3 AuthService supplies BCrypt cost 12 before
+persistence; there is no API accepting a client-provided password hash.
 
 ## Explicitly deferred tables
 
-Refresh sessions/tokens (M3), submission idempotency (M5), outbox/inbox deduplication
+JWT/refresh-token storage is deliberately not used: M3 implements opaque sessions.
+Submission idempotency (M5), outbox/inbox deduplication
 (M8), notifications/preferences/delivery attempts (M9), workflow dependency graphs
 and quorum reviewers (when advanced flows are approved). No generic projects/tasks
 are included because GateFlow is a request/approval product, not a task tracker.

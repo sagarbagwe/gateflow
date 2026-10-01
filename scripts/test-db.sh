@@ -34,9 +34,10 @@ bash scripts/migrate-db.sh validate > "$test_dir/validate.log" 2>&1 || { tail -3
 echo 'PASS: Flyway validation'
 bash scripts/migrate-db.sh migrate > "$test_dir/repeat.log" 2>&1 || { tail -30 "$test_dir/repeat.log"; exit 1; }
 history="$(pg -d "$test_db" -Atc 'SELECT count(*) FROM flyway_schema_history WHERE version IS NOT NULL AND success;')"
-[[ "$history" = 3 ]] || { echo "Unexpected versioned migration count: $history" >&2; exit 1; }
+migration_count="$(python3 -c 'from pathlib import Path; print(len(list(Path("backend/src/main/resources/db/migration").glob("V*__*.sql"))))')"
+[[ "$history" = "$migration_count" ]] || { echo "Unexpected versioned migration count: $history" >&2; exit 1; }
 grep -qi 'up to date' "$test_dir/repeat.log" || { tail -20 "$test_dir/repeat.log"; exit 1; }
-echo 'PASS: second migrate is a no-op with three successful versioned history rows'
+echo "PASS: second migrate is a no-op with $history successful versioned history rows"
 pg -d "$test_db" < backend/tests/database/integrity.sql > "$test_dir/integrity.log" 2>&1 || {
   tail -35 "$test_dir/integrity.log"; exit 1;
 }
@@ -53,7 +54,8 @@ grep -qi 'checksum mismatch' "$test_dir/checksum.log" || { tail -25 "$test_dir/c
 echo 'PASS: altered migration checksum rejected'
 # Prove PostgreSQL transactional DDL leaves neither a table nor failed history row.
 cp -R backend/src/main/resources/db/migration "$test_dir/rollback-migration"
-cat > "$test_dir/rollback-migration/V4__intentional_failure.sql" <<'SQL'
+next_version="$(python3 -c 'from pathlib import Path; print(max(int(p.name.split("__")[0][1:]) for p in Path("backend/src/main/resources/db/migration").glob("V*__*.sql")) + 1)')"
+cat > "$test_dir/rollback-migration/V${next_version}__intentional_failure.sql" <<'SQL'
 CREATE TABLE gateflow_rollback_probe (id integer);
 SELECT deliberately_missing_column FROM gateflow_rollback_probe;
 SQL
@@ -64,7 +66,7 @@ if docker compose --profile tools run --rm -T \
 fi
 grep -qi 'deliberately_missing_column' "$test_dir/rollback.log" || { tail -25 "$test_dir/rollback.log"; exit 1; }
 rollback_state="$(pg -d "$test_db" -Atc \
-  "SELECT to_regclass('public.gateflow_rollback_probe') IS NULL; SELECT count(*) FROM flyway_schema_history WHERE version='4';")"
+  "SELECT to_regclass('public.gateflow_rollback_probe') IS NULL; SELECT count(*) FROM flyway_schema_history WHERE version='$next_version';")"
 [[ "$rollback_state" = $'t\n0' ]] || { echo 'FAIL: failed migration left partial database state' >&2; exit 1; }
 echo 'PASS: failed migration rolls back both DDL and schema-history changes'
 bash scripts/migrate-db.sh validate > "$test_dir/post-failure-validate.log" 2>&1 || {
