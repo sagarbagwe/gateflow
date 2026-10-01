@@ -31,9 +31,10 @@ docker compose exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
 docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1;"'
 ```
 
-Expected: readiness success and a row containing 1. These checks have NOT been
-run in the current workspace because Docker is unavailable. Once migrations
-exist, a real database integration suite replaces this basic smoke check.
+Expected: readiness success and a row containing 1. These checks passed in the
+agent's Linux sandbox. Password authentication, wrong-password rejection, and
+volume persistence also passed; see [verification evidence](verification/milestone-1.md).
+Once migrations exist, a real database integration suite supplements these smoke checks.
 
 ## Stop / inspect
 

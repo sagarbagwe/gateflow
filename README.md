@@ -108,7 +108,11 @@ available, validates Compose without printing its resolved secrets. It does not
 exercise business logic or database connectivity. Unit, integration, security,
 and concurrency tests will accompany their features; Milestone 13 expands them.
 
-Actual results and limitations: [Milestone 1 verification](docs/verification/milestone-1.md).
+Real PostgreSQL runtime verification has also passed in the agent's Linux sandbox:
+healthy startup, SQL smoke query, host TCP password authentication, wrong-password
+rejection, and persistence across container recreation. No user-side setup was
+needed. Actual results and limitations:
+[Milestone 1 verification](docs/verification/milestone-1.md).
 
 ## Docker
 
