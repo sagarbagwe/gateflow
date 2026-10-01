@@ -1,7 +1,13 @@
 # System design
 
-Status: proposed architecture, Milestone 1. Only the repository scaffold and
-PostgreSQL dependency configuration exist. Dashed/future components are not built.
+Status: architecture direction with Milestone 2 database implementation. The
+repository scaffold, PostgreSQL setup, core schema, Flyway migrations, and storage
+integrity tests exist. The application, UI, cache, broker, and worker are not built.
+Dashed/future components below remain plans.
+
+Implemented storage model: [schema](../database/schema.md),
+[ER diagram](../database/er-diagram.md), [indexes](../database/indexes.md), and
+[transaction boundaries](../database/transactions.md).
 
 ## Functional requirements
 
@@ -150,8 +156,8 @@ PostgreSQL indexes/full-text features; no separate search cluster is justified y
 
 Use Flyway. Production Hibernate configuration validates schema; it does not
 create or update it. Tenant-sensitive relations need constraints preventing a
-request from linking to another organization's workflow or member. Details follow
-in Milestone 2. Backups and point-in-time recovery require a deployment plan.
+request from linking to another organization's workflow or member. The implemented composite keys and storage guards are documented in
+the database design; API read authorization is still future work. Backups and point-in-time recovery require a deployment plan.
 
 ## Caching (later)
 

@@ -2,7 +2,7 @@ name: gateflow
 
 services:
   postgres:
-    image: postgres:17-bookworm
+    image: postgres:17-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
@@ -18,6 +18,26 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+
+  flyway:
+    # One-shot tool, not an application service. Verified Flyway OSS 13.8.1.
+    image: flyway/flyway:13.8.1-alpine@sha256:ca3c8eddac25811f84c9767c56a0610ce23cd4e61f59bb05778a78db42347b39
+    profiles: [tools]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      FLYWAY_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_CLEAN_DISABLED: "true"
+      FLYWAY_BASELINE_ON_MIGRATE: "false"
+      FLYWAY_OUT_OF_ORDER: "false"
+      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
+      FLYWAY_CONNECT_RETRIES: "10"
+    volumes:
+      - ./backend/src/main/resources/db/migration:/flyway/sql:ro
 
 volumes:
   postgres_data:

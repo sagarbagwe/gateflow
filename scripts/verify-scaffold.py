@@ -21,6 +21,13 @@ required = [
     "backend/src/.gitkeep", "backend/tests/.gitkeep", "frontend/src/.gitkeep",
     "frontend/tests/.gitkeep", "docs/api/.gitkeep", "docs/database/.gitkeep",
     ".github/workflows/.gitkeep",
+    "docs/database/schema.md", "docs/database/er-diagram.md",
+    "docs/database/indexes.md", "docs/database/transactions.md",
+    "docs/database/migrations.md", "scripts/migrate-db.sh", "scripts/test-db.sh",
+    "backend/tests/database/integrity.sql",
+    "backend/src/main/resources/db/migration/V1__create_core_schema.sql",
+    "backend/src/main/resources/db/migration/V2__enforce_workflow_and_audit_integrity.sql",
+    "backend/src/main/resources/db/migration/V3__seed_permission_catalog.sql",
 ]
 check(all((ROOT / f).is_file() for f in required), "required scaffold files exist")
 compose = (ROOT / "docker-compose.yml").read_text()

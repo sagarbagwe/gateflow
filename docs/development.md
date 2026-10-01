@@ -14,6 +14,8 @@ cp .env.example .env
 bash scripts/check.sh
 bash scripts/dev-db.sh up
 bash scripts/dev-db.sh status
+bash scripts/migrate-db.sh migrate
+bash scripts/migrate-db.sh validate
 ```
 
 Compose reads `.env`; the start script rejects the placeholder. Passwords must
@@ -34,7 +36,8 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 Expected: readiness success and a row containing 1. These checks passed in the
 agent's Linux sandbox. Password authentication, wrong-password rejection, and
 volume persistence also passed; see [verification evidence](verification/milestone-1.md).
-Once migrations exist, a real database integration suite supplements these smoke checks.
+Migrations now exist; run `bash scripts/test-db.sh` for the real database
+integrity/replay/checksum suite. It creates and cleans up only a disposable database.
 
 ## Stop / inspect
 
@@ -55,7 +58,8 @@ PostgreSQL volume. Back up anything needed first; never use this on production.
 - `.env.example`: tracked variable names and non-production placeholders.
 - `.env`: local values, ignored by Git.
 - Production: managed secrets and restricted networking; not this Compose file.
-- No Redis, RabbitMQ, API, or UI services exist yet.
+- No Redis, RabbitMQ, API, or UI services exist yet. Flyway is available as a
+  one-shot tools profile, and PostgreSQL/Flyway images are digest-pinned.
 
 ## Verification rules
 

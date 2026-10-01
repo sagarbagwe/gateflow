@@ -2,9 +2,9 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 1 — repository and architecture scaffold.** No application,
-> authentication, migrations, REST endpoints, or frontend has been implemented.
-> The only runnable service currently configured is local PostgreSQL.
+> **Status: Milestone 2 — database schema and migrations.** No application,
+> authentication, REST endpoints, or frontend has been implemented. PostgreSQL
+> runs locally; a one-shot Flyway tools profile applies and validates the schema.
 
 ## Problem
 
@@ -21,7 +21,8 @@ the outcome. It approves requests; it does not execute payments or provision acc
 ## Features
 
 **Implemented:** repository scaffold, architecture/decision documentation,
-local PostgreSQL Compose configuration, scaffold verification, Git conventions.
+PostgreSQL Compose configuration, tenant-safe fourteen-table core schema, three
+Flyway migrations, database integrity/replay/checksum tests, ER diagram, and Git conventions.
 
 **Planned:** tenant isolation, authentication, RBAC, versioned sequential approvals,
 reviewer inbox, search, notification preferences, durable background delivery,
@@ -52,8 +53,8 @@ See [system design](docs/architecture/system-design.md).
 | --- | --- | --- |
 | Java 21, Spring Boot, Maven | Backend runtime and build | Planned; no application yet |
 | Spring Security | Authentication and authorization | Planned |
-| JPA/Hibernate, PostgreSQL 17 | Relational persistence | PostgreSQL local configuration only |
-| Flyway | Explicit schema migrations | Milestone 2 |
+| JPA/Hibernate, PostgreSQL 17 | Relational persistence | Core schema with verified migrations |
+| Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
 | Redis | Measured cache use and shared rate limits | Milestone 7 |
 | RabbitMQ | Durable background jobs | Milestone 8 |
 | React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
@@ -70,9 +71,11 @@ is introduced. No release compatibility or vulnerability claim is made yet.
 
 ## Database Design
 
-Design starts in Milestone 2: tenant boundaries, workflow definitions versus
-execution instances, constraints, indexes, ER diagram, and Flyway migrations.
-Production will not use automatic ORM schema creation.
+[Schema and entity relationships](docs/database/schema.md),
+[ER diagram](docs/database/er-diagram.md), [indexes](docs/database/indexes.md),
+[transaction boundaries](docs/database/transactions.md), and
+[Flyway operations](docs/database/migrations.md). Production will not use automatic
+ORM schema creation. No application workflow behavior is implemented yet.
 
 ## API Documentation
 
@@ -83,7 +86,7 @@ arrive with the first endpoints; full OpenAPI review is Milestone 12.
 ## Local Development
 
 Prerequisites for this milestone: Git, Docker Engine/Desktop with Compose v2,
-and Python 3 for the lightweight scaffold checker. No Java build is needed yet.
+and Python 3 for the scaffold/test helpers. No Java build is needed yet.
 
 ```sh
 cp .env.example .env
@@ -91,6 +94,8 @@ cp .env.example .env
 bash scripts/check.sh
 bash scripts/dev-db.sh up
 bash scripts/dev-db.sh status
+bash scripts/migrate-db.sh migrate
+bash scripts/migrate-db.sh validate
 bash scripts/dev-db.sh logs
 ```
 
@@ -105,21 +110,28 @@ troubleshooting. Never reuse local credentials in production.
 
 `bash scripts/check.sh` verifies the scaffold and shell syntax and, when Docker is
 available, validates Compose without printing its resolved secrets. It does not
-exercise business logic or database connectivity. Unit, integration, security,
-and concurrency tests will accompany their features; Milestone 13 expands them.
+exercise business logic or database connectivity.
+
+Run `bash scripts/test-db.sh` for real database integration verification: fresh
+migrations, validation, repeat-migrate no-op, SQL integrity assertions, checksum
+rejection, and automatic disposable-database cleanup. Application/security and
+multi-connection concurrency tests will accompany their features; Milestone 13
+expands them.
 
 Real PostgreSQL runtime verification has also passed in the agent's Linux sandbox:
 healthy startup, SQL smoke query, host TCP password authentication, wrong-password
 rejection, and persistence across container recreation. No user-side setup was
 needed. Actual results and limitations:
-[Milestone 1 verification](docs/verification/milestone-1.md).
+[Milestone 1 verification](docs/verification/milestone-1.md) and
+[Milestone 2 verification](docs/verification/milestone-2.md).
 
 ## Docker
 
 Local PostgreSQL uses persistent storage, a readiness health check, and a
-loopback-only host port. `postgres:17-bookworm` follows PostgreSQL 17 patch
-releases; it is not a reproducible digest pin. Application Dockerfiles and a full
-local stack are intentionally deferred. Production images will be pinned and scanned.
+loopback-only host port. PostgreSQL and Flyway are pinned to tested image digests;
+updates require explicit review and migration tests. Flyway is a one-shot tools
+profile, not a long-running application. Application Dockerfiles and a full local
+stack are intentionally deferred. Production image scanning is still future work.
 
 ## CI/CD
 

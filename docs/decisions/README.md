@@ -7,5 +7,7 @@ means an architectural direction—not that its components are implemented.
 - [ADR 002: Relational persistence and versioned workflows](002-persistence.md)
 - [ADR 003: Deferred asynchronous delivery](003-async-delivery.md)
 
+- [ADR 004: Tenant-safe sequential schema](004-tenant-safe-schema.md)
+
 Future decisions: authentication/session lifecycle (M3), cache semantics (M7),
 outbox ownership/retries (M8), and AWS deployment (M18).
