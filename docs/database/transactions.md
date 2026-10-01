@@ -78,3 +78,11 @@ Comprehensive audit browsing/retention/security review remain M10/M20.
 At M8, transactional outbox writes will join business commit. Consumer deduplication
 and provider delivery remain separate failure domains; this M5 ledger does not
 promise exactly-once emails or external payments/provisioning.
+
+## M6 reads
+
+Search and detail use REPEATABLE_READ: fresh membership/permissions and SQL
+visibility are resolved within one database snapshot. Query reads generate no
+audit entries and acquire no organization command lock. Each pagination request
+starts a new transaction, so authorization is never frozen in a cursor and pending
+work can change. This is not a cross-page snapshot/export contract.

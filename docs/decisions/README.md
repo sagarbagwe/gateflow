@@ -17,3 +17,5 @@ means an architectural direction—not that its components are implemented.
 
 Future decisions: cache semantics (M7),
 outbox ownership/retries (M8), and AWS deployment (M18).
+
+- [ADR 008: PostgreSQL search and keyset pagination](008-postgresql-search-keyset.md)

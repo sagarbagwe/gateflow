@@ -157,3 +157,5 @@ erDiagram
 The email UK is an expression index on `lower(email)`. Version numbering is unique
 per definition, and role codes are unique per organization. Approval cardinality
 is intentionally one decision per step for the first sequential engine.
+
+M6 adds a derived `requests.search_document` tsvector and indexes/creation-time guard. No entities or relationships changed; the ER diagram remains structurally correct.

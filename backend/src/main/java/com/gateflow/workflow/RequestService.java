@@ -1,7 +1,6 @@
 package com.gateflow.workflow;
 
 import static com.gateflow.rbac.Permission.*;
-import static com.gateflow.rbac.RbacDtos.AccessView;
 import static com.gateflow.workflow.WorkflowDtos.*;
 
 import com.gateflow.http.ApiException;
@@ -21,6 +20,7 @@ public class RequestService {
     private final AuthorizationService authorization;
     private final CommandReceipts receipts;
     private final TenantAuditWriter audit;
+    private final RequestAccessPolicy access;
 
     public RequestService(
             RequestRepository repository,
@@ -28,53 +28,22 @@ public class RequestService {
             ReviewerService reviewers,
             AuthorizationService authorization,
             CommandReceipts receipts,
-            TenantAuditWriter audit) {
+            TenantAuditWriter audit,
+            RequestAccessPolicy access) {
         this.repository = repository;
         this.workflows = workflows;
         this.reviewers = reviewers;
         this.authorization = authorization;
         this.receipts = receipts;
         this.audit = audit;
+        this.access = access;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public RequestView get(UUID user, UUID org, UUID id) {
         var actor = authorization.requireMember(user, org);
-        var request = repository.find(org, id, false);
-        visible(actor, request);
-        return request;
-    }
-
-    private void visible(AccessView a, RequestView r) {
-        boolean own =
-                a.membershipId().equals(r.requesterMembershipId())
-                        && a.permissions().contains(REQUEST_VIEW_OWN);
-        boolean all = a.permissions().contains(REQUEST_VIEW_ALL);
-        boolean reviewed =
-                a.permissions().contains(REQUEST_APPROVE)
-                        && r.steps().stream()
-                                .anyMatch(
-                                        s ->
-                                                s.decision() != null
-                                                        && a.membershipId()
-                                                                .equals(
-                                                                        s.decision()
-                                                                                .reviewerMembershipId()));
-        boolean assigned =
-                a.permissions().contains(REQUEST_APPROVE)
-                        && r.steps().stream()
-                                .anyMatch(
-                                        s ->
-                                                s.state() == StepState.ACTIVE
-                                                        && a.membershipId()
-                                                                .equals(s.assignedMembershipId())
-                                                        && reviewers.eligible(
-                                                                a.organizationId(),
-                                                                s.approverRoleId(),
-                                                                a.membershipId(),
-                                                                r.requesterMembershipId()));
-        if (!own && !all && !reviewed && !assigned)
-            throw WorkflowRepository.missing("REQUEST_NOT_FOUND");
+        access.requireVisible(actor, id);
+        return repository.find(org, id, false);
     }
 
     @Transactional
@@ -143,7 +112,7 @@ public class RequestService {
             DecideRequest b,
             String requestId) {
         var actor = authorization.shareAndRequire(user, org, REQUEST_APPROVE);
-        visible(actor, repository.find(org, id, false));
+        access.requireVisible(actor, id);
         return receipts.execute(
                 org,
                 actor.membershipId(),

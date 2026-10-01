@@ -213,6 +213,19 @@ BEGIN
     PERFORM pg_temp.expect_failure('receipt update rejected', 'UPDATE command_receipts SET operation=''WITHDRAW''', '55000');
     PERFORM pg_temp.expect_failure('receipt deletion rejected', 'DELETE FROM command_receipts', '55000');
     PERFORM pg_temp.expect_failure('receipt truncation rejected', 'TRUNCATE command_receipts', '55000');
+    PERFORM pg_temp.assert_true('search vector generated for terminal request',
+        (SELECT search_document=to_tsvector('simple'::regconfig,coalesce(title,'') || ' ' || coalesce(description,'')) FROM requests WHERE id=request_a));
+    INSERT INTO requests(id,organization_id,requester_membership_id,workflow_definition_id,title,description,request_type)
+        VALUES(audit_a,org_a,member_a,def_a,'Mutable draft','Original description','SOFTWARE_ACCESS');
+    PERFORM pg_temp.expect_failure('request creation coordinate immutable on drafts',
+        format('UPDATE requests SET created_at=created_at+interval ''1 second'' WHERE id=%L',audit_a),'55000');
+    PERFORM pg_temp.expect_failure('request ID coordinate immutable on drafts',
+        format('UPDATE requests SET id=%L WHERE id=%L',gen_random_uuid(),audit_a),'55000');
+    PERFORM pg_temp.expect_failure('search vector cannot be assigned manually',
+        format('UPDATE requests SET search_document=to_tsvector(''simple'',''forged'') WHERE id=%L',audit_a),'428C9');
+    UPDATE requests SET title='Updated Neptune',description='Replacement' WHERE id=audit_a;
+    PERFORM pg_temp.assert_true('draft search vector updates automatically',
+        (SELECT search_document @@ plainto_tsquery('simple','neptune replacement') AND NOT search_document @@ plainto_tsquery('simple','original') FROM requests WHERE id=audit_a));
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;

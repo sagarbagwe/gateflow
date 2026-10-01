@@ -264,3 +264,26 @@ commands. Full load/capacity/latency claims await M19 measurements.
 
 [Core API](../api/workflows.md) and [ADR 007](../decisions/007-sequential-workflow-commands.md)
 define actual success/retry/visibility and failure semantics.
+
+## M6 implemented search path
+
+Authenticated GET → fresh active tenant membership/grants → whitelist query parser
+→ shared visibility predicates → PostgreSQL bounded summary query → sentinel and
+context-bound cursor. Normal history uses organization/creation B-tree; rare token
+search can use generated tsvector GIN; pending inbox joins ACTIVE assignments and
+checks required role. All access filtering precedes pagination. No extra search
+service, cache or background job is added.
+
+Default cursor navigation avoids deep-offset discards for aligned indexed feeds;
+offset mode is optional and capped. No total-count query, N+1 summary hydration,
+arbitrary sort or unrestricted payload export. Status/type/workflow/date filters
+combine with visibility and may change planner selectivity. Common search terms,
+large tenant histories, historical reviewer OR predicates and rapidly changing
+inboxes need production measurement before extra indexes/search infrastructure.
+
+Creation cutoff reduces drift for later submissions, not point-in-time exports.
+Per-page grants remain fresh; unsigned cursors are navigation state, never authority.
+V7 backfill/index DDL needs maintenance-window planning on populated deployments.
+See [API contract](../api/search.md), [ADR 008](../decisions/008-postgresql-search-keyset.md),
+and [verification](../verification/milestone-6.md). Capacity assumptions elsewhere
+remain assumptions; this milestone does not substantiate production throughput.

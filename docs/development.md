@@ -110,3 +110,12 @@ bypassing guards on a shared product database. No broker, Redis or frontend is
 required to run the M5 synchronous core. The body limit is fixed at 256 KiB for
 current synchronous JSON POST/PUT/PATCH routes. Streaming/async uploads require
 a deliberately different bounded transport before introducing those APIs.
+
+## M6 search verification
+
+Search requires no service beyond PostgreSQL. The default API is cursor-paged;
+repeat filters/scope on continuation. See [API](api/search.md) and
+[verification](verification/milestone-6.md) for bounds and consistency limits.
+`RequestSearchPostgresTest` writes generated EXPLAIN evidence under
+`backend/target/query-plans/`; it tests a two-tenant synthetic fixture, not production
+capacity. Normal VACUUM/ANALYZE after bulk insertion matters for GIN plan selection.

@@ -30,6 +30,8 @@ reviewed operator procedure.
 - V4: global opaque auth sessions and shared fixed-window auth counters (M3).
 - V5: creator attribution, protected role metadata, administrative row versions (M4).
 - V6: workflow command ledger, state guards, policy row versions, REQUEST_REASSIGN (M5).
+- V7: generated request search document/indexes and creation-time guard (M6).
+- V8: additive request UUID coordinate guard for keyset pagination (M6).
 
 Flyway creates its own `flyway_schema_history` table, separate from domain tables.
 Do not edit an applied migration. Add a new version. Validation must reject checksum
@@ -67,3 +69,31 @@ V6 uses ordinary transactional DDL/index creation, not an online large-table
 index rollout. Preflight existing ACTIVE-step duplicates and schedule/measure
 locks before applying it to a populated production DB. Do not silently delete
 legacy steps or bypass guards to make the migration pass.
+
+## V7 — search and immutable pagination coordinates
+
+Adds stored generated requests.search_document, GIN full-text index, organization
+creation-tuple index, reviewer-history index, and BEFORE UPDATE creation-time guard.
+Seventeen application tables remain; this is a column/index/trigger change, not a
+new service. The generated column backfills both draft and terminal requests;
+updates to drafts automatically recompute it. Manual vector assignment fails.
+
+V1–V6 checksums are unchanged. A real 6→8 upgrade fixture preserves an approved
+request and its decision, validates checksums, and verifies repeat migration no-op.
+The earlier M5 upgrade test now explicitly targets version 6 to keep its original
+5→6 assertions meaningful.
+
+**Production caution:** stored generated-column backfill may rewrite the table;
+ordinary transactional CREATE INDEX is not concurrent. Budget table locks, disk
+and WAL on a representative restored database, configure operator timeouts, back
+up and schedule a maintenance window. Do not call this a zero-downtime migration.
+A future busy deployment may need staged online index construction and an
+individually designed backfill. Never edit applied files or disable integrity guards.
+
+## V8 — complete tuple immutability
+
+Final review found that imported drafts without referencing child rows could have
+their UUID changed by direct SQL. V8 extends the V7 trigger function to reject ID
+changes as well as creation-time changes. No new trigger/table/index; V7 had already
+been applied in verification, so it was not edited. The upgrade test proves both
+coordinates fail with 55000, including legacy drafts.

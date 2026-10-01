@@ -1,8 +1,8 @@
 # GateFlow backend
 
 Java 21, Spring Boot 3.5.16, Maven, PostgreSQL, Hibernate/JPA and targeted JDBC SQL.
-Implemented: browser authentication and database migrations. Organization RBAC and
-request workflows are not implemented yet.
+Implemented: browser authentication, organization RBAC, sequential request workflows,
+tenant-safe search/reviewer inbox, and explicit database migrations.
 
 ## Build and test
 
@@ -53,3 +53,6 @@ M5 implements typed workflow configuration, sequential request execution,
 per-request concurrency and durable command receipts. See [Core API](../docs/api/workflows.md),
 [ADR 007](../docs/decisions/007-sequential-workflow-commands.md) and
 [verification](../docs/verification/milestone-5.md).
+
+M6 implements bounded search, filtering, tuple cursor navigation and reviewer inbox.
+See [Search API](../docs/api/search.md) and [verification](../docs/verification/milestone-6.md).

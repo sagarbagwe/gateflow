@@ -13,6 +13,10 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/api/search.md", "docs/decisions/008-postgresql-search-keyset.md",
+    "docs/verification/milestone-6.md",
+    "backend/src/main/resources/db/migration/V7__add_request_search.sql",
+    "backend/src/main/resources/db/migration/V8__protect_request_cursor_id.sql",
     "README.md", "LICENSE", ".gitignore", ".env.example", "docker-compose.yml",
     "docs/architecture/system-design.md", "docs/development.md",
     "docs/milestones.md", "docs/decisions/001-modular-monolith.md",

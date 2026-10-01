@@ -1,6 +1,6 @@
 # Low-level design — authentication, RBAC, and workflows
 
-This document describes implemented M3/M4/M5 classes. Parallel/async workflows remain future work.
+This document describes implemented M3/M4/M5/M6 classes. Parallel/async workflows remain future work.
 Expand it with subsequent modules. No generic factories or event bus are added
 just to demonstrate patterns.
 
@@ -155,3 +155,34 @@ retain order; reordering a meaningful command list is not canonicalized away.
 
 [ADR 007](../decisions/007-sequential-workflow-commands.md) explains why, alternatives,
 transaction/locking trade-offs, failures and scaling limits.
+
+## M6 search components
+
+| Component | Responsibility |
+| --- | --- |
+| RequestSearchController | Two read-only HTTP routes; forwards explicit parsed parameters |
+| RequestSearchQuery | Immutable whitelist/enum/size/date/pagination validation |
+| RequestAccessPolicy | Shared detail/list SQL predicates, scope permissions, current assignment eligibility |
+| RequestSearchService | Per-request REPEATABLE_READ, fresh authorization, cursor context, sentinel pagination |
+| RequestSearchRepository | Bound SQL values, fixed sort identifiers, one summary hydration query |
+| SearchCursor | Versioned bounded serialization, normalized search digest, strict structural checks |
+| RequestSearchDtos | Immutable list/summary records; no heavy detail history |
+
+Constructor injection separates HTTP validation, authorization, query construction,
+serialization and page assembly. Shared eligibility prevents drift between inbox
+and detail. No generalized search DSL/factory/cache interface is necessary.
+RequestService uses the shared visibility policy but retains command transactions,
+locks, state machine, authorization and reviewer rechecks.
+
+### Genuine algorithm: ordered tuple continuation
+
+Problem: page a changing request history without skipping equal timestamps.
+Approach/data structure: lexicographic `(created_at, UUID)` comparison over an
+organization-leading PostgreSQL B-tree; append a limit+1 sentinel.
+Typical aligned index work is O(log N + K), K returned candidates; complex
+visibility/FTS filters can inspect many more candidates and sort matches. This is
+not a guarantee that every API call is O(K). Application result memory O(K), K≤101.
+Tie-breaker is PostgreSQL UUID ordering, not Java UUID signed-long comparison.
+Offset visits preceding candidates O(offset+K) for an aligned traversal and cannot
+provide stable deep navigation. New context digest sorting is bounded by five
+statuses; no handmade balanced tree or artificial DSA library is added.

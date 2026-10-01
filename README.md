@@ -2,10 +2,10 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 5 — sequential approval workflows.**
-> Authentication/RBAC, immutable policy publication, conditional submission,
-> approve/reject/withdraw/reassign commands, durable retries and transactional
-> audit work. Search, frontend, queues and production deployment remain future work.
+> **Status: Milestone 6 — tenant-safe search and reviewer inbox.**
+> Authentication/RBAC, sequential workflow commands, immutable published policies,
+> durable retries, transactional audit, full-text search, filters and bounded
+> pagination work. Redis, frontend, queues and production deployment remain later milestones.
 
 ## Problem
 
@@ -21,15 +21,17 @@ the outcome. It approves requests; it does not execute payments or provision acc
 
 ## Features
 
-**Implemented:** repository/architecture, seventeen application tables, six
+**Implemented:** repository/architecture, seventeen application tables, eight
 Flyway migrations, ER/index/transaction docs, Spring Boot authentication, BCrypt,
 hashed opaque sessions, CSRF/secure-cookie handling, shared auth rate limiting,
 validation/errors/request IDs, organization RBAC with safe delegation, protected
 admin membership, version guards, atomic security audits, unit/HTTP/database/race
 tests, versioned conditional workflows, concurrency-safe decisions/withdrawal,
-durable idempotency receipts, reviewer reassignment, and local build/run tooling.
+durable idempotency receipts, reviewer reassignment, tenant-safe full-text search,
+active reviewer inbox, status/type/workflow/date filters, bounded cursor/offset
+navigation, additive upgrade checks, and local build/run tooling.
 
-**Planned:** searchable reviewer inbox, search, notification preferences, durable background delivery,
+**Planned:** Redis where justified, notification preferences, durable background delivery,
 comprehensive audit browsing/retention, and broader workflow policies. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
@@ -89,6 +91,8 @@ signup, login, logout, CSRF bootstrap, and current user. Errors use sanitized
 ProblemDetail responses and request IDs. Product commands (submit/approve/reject/
 withdraw/reassign) are implemented in [Core workflow API](docs/api/workflows.md).
 [RBAC API](docs/api/rbac.md) documents organization/role/membership commands.
+[Search API](docs/api/search.md) documents request summaries, reviewer inbox,
+filter semantics and cursor consistency/security limits.
 Full OpenAPI review is Milestone 12.
 
 ## Local Development
@@ -137,13 +141,14 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: **106 tests** (39 unit,
-66 real HTTP/PostgreSQL, one PostgreSQL migration-upgrade test), zero failures/skips,
-and packages the executable JAR. The database suite passes **78 checks**.
-**39 packaged workflow smoke assertions** and cleanup passed. Six concurrency
-scenarios also passed three extra fresh-database runs. See
-[Milestone 5 evidence](docs/verification/milestone-5.md),
-[RBAC evidence](docs/verification/milestone-4.md) and
+`bash scripts/test-backend.sh` runs Maven verify: **145 tests** (52 unit,
+89 real HTTP/PostgreSQL, four PostgreSQL migration/index tests), zero failures/skips,
+and packages the executable JAR. The database suite passes **83 checks**.
+**55 packaged workflow/search smoke assertions** and cleanup passed. Five
+pagination/permission-change scenarios passed three extra fresh-database runs.
+See [Milestone 6 evidence](docs/verification/milestone-6.md),
+[core workflow evidence](docs/verification/milestone-5.md),
+[RBAC evidence](docs/verification/milestone-4.md), and
 [authentication evidence](docs/verification/milestone-3.md).
 
 ## Docker
@@ -162,8 +167,11 @@ explicit rollout/rollback plan and approval; it is not enabled automatically.
 
 ## Performance
 
-No benchmarks have been run. Capacity figures in system design are planning
-assumptions, not measured throughput. Milestone 19 records before/after results.
+Seeded PostgreSQL EXPLAIN (ANALYZE, BUFFERS) checks verify rare-term GIN search
+and B-tree feed/deep-cursor index selection on 30,002 records across two tenants
+after normal bulk-load vacuum maintenance. These are structural plan checks,
+not production latency/load benchmarks. Capacity figures remain assumptions.
+Milestone 19 records measured before/after workload results.
 
 ## Security
 
@@ -195,15 +203,16 @@ Not available: the UI is not implemented.
 
 ## Demo
 
-No hosted demo exists. The agent started the packaged backend and verified auth
-and approval lifecycles against PostgreSQL. Disposable business fixtures were removed;
+No hosted demo exists. The agent started the packaged backend and verified auth,
+approval lifecycles, full-text filters and cursor navigation against PostgreSQL. Disposable business fixtures were removed;
 there is no persistent publicly hosted service or browser UI yet.
 
 ## Engineering Challenges
 
 Implemented challenges: tenant-safe admin queries, safe permission delegation,
 immediate privilege revocation, atomic audit rollback, concurrent last-admin
-protection, immutable policy binding, approve/withdraw races and duplicate commands.
+protection, immutable policy binding, approve/withdraw races, duplicate commands,
+shared detail/list visibility, tied-time pagination and fresh cursor authorization.
 Planned challenges: database-to-queue consistency, idempotent workers and cache coherence.
 
 ## Contributing and License
@@ -214,3 +223,5 @@ Implementation-level responsibilities are in [LLD](docs/architecture/lld.md).
 Milestone 4 verification: [RBAC evidence and limitations](docs/verification/milestone-4.md).
 
 Milestone 5 verification: [Core workflow evidence and limitations](docs/verification/milestone-5.md).
+
+Milestone 6 verification: [Search evidence and limitations](docs/verification/milestone-6.md).

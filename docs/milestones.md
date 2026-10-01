@@ -1,6 +1,6 @@
 # Incremental delivery plan
 
-Milestones 1–5 are implemented and verified. This change covers Milestone 5 only. Each major milestone requires user
+Milestones 1–6 are implemented and verified. This change covers Milestone 6 only. Each major milestone requires user
 approval after implementation, checks, fixes, and documentation. Tests/security
 invariants start with their features rather than waiting for later review phases.
 

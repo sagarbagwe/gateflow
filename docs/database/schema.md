@@ -146,3 +146,11 @@ are included because GateFlow is a request/approval product, not a task tracker.
 - No request DRAFT API: M5 binds direct submissions into IN_REVIEW. DRAFT remains a
   valid stored state for compatibility; direct submission is one atomic operation.
 - There is no automatic receipt expiry/retention job or provider-delivery ledger.
+
+## M6 search representation
+
+`requests.search_document` is a stored generated PostgreSQL tsvector of coalesced
+`title || ' ' || description`, using explicit simple regconfig. It is not a client
+field or a new entity. Creation coordinates are immutable even for legacy drafts.
+Read summaries expose created_at with UUID tie-breaker; source payload and decision
+history still live in their original tables. See [search API](../api/search.md).

@@ -170,3 +170,9 @@ inactive step, conflicting key, absent eligible reviewer or no applicable steps;
 
 Search, request lists/reviewer inbox filters, OpenAPI, notifications and public
 frontend are deliberately not included in M5.
+
+## Request listing (M6)
+
+Tenant-safe summary search and eligible reviewer inbox are now implemented;
+see [search API](search.md) for scopes, filters, stable tuple pagination, visibility
+and cursor limitations. Detail/commands retain the contracts above.

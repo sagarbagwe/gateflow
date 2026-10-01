@@ -47,25 +47,25 @@ class WorkflowMigrationTest {
                 custom = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO organizations(id,name,slug) VALUES(?, 'Old"
-                    + " tenant','old-tenant'),(?,'Legacy tenant','legacy-tenant')",
+                        + " tenant','old-tenant'),(?,'Legacy tenant','legacy-tenant')",
                 org,
                 other);
         jdbc.update(
                 "INSERT INTO roles(id,organization_id,code,name,is_system)"
-                    + " VALUES(?,?,'ADMIN','Protected Admin',true),(?,?,'ADMIN','Legacy"
-                    + " name',false)",
+                        + " VALUES(?,?,'ADMIN','Protected Admin',true),(?,?,'ADMIN','Legacy"
+                        + " name',false)",
                 admin,
                 org,
                 custom,
                 other);
         jdbc.update(
                 "INSERT INTO role_permissions(organization_id,role_id,permission_code) SELECT"
-                    + " ?,?,code FROM permissions",
+                        + " ?,?,code FROM permissions",
                 org,
                 admin);
         jdbc.update(
                 "INSERT INTO role_permissions(organization_id,role_id,permission_code)"
-                    + " VALUES(?,?,'WORKFLOW_VIEW')",
+                        + " VALUES(?,?,'WORKFLOW_VIEW')",
                 other,
                 custom);
         var after =
@@ -74,6 +74,7 @@ class WorkflowMigrationTest {
                                 POSTGRES.getJdbcUrl(),
                                 POSTGRES.getUsername(),
                                 POSTGRES.getPassword())
+                        .target("6")
                         .load();
         assertThat(after.migrate().migrationsExecuted).isEqualTo(1);
         after.validate();
@@ -93,7 +94,7 @@ class WorkflowMigrationTest {
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM role_permissions WHERE role_id=? AND"
-                                    + " permission_code='REQUEST_REASSIGN'",
+                                        + " permission_code='REQUEST_REASSIGN'",
                                 Integer.class,
                                 custom))
                 .isZero();

@@ -49,7 +49,7 @@ its PK; `ix_auth_rate_limit_window` supports stale-bucket cleanup. Account login
 uses `lower(email)` explicitly so its query matches the existing unique expression
 index. No measured performance improvement is claimed.
 
-## Future list query and pagination
+## Implemented M6 list query and pagination
 
 ```sql
 SELECT id, title, state, created_at
@@ -62,14 +62,12 @@ LIMIT :bounded_page_size;
 
 The UUID tie-breaker makes ordering deterministic for equal timestamps. Indexes
 are not authorization checks. Offset is acceptable for small admin lists; cursor
-pagination is preferable for deep histories and changing inboxes. A status-free
-organization timeline may need a different index once its query is implemented.
+pagination is preferable for deep histories and changing inboxes. M6 adds `ix_requests_org_created` for the status-free timeline.
 
 ## Deferred optimization
 
-Full-text/GIN search indexes, archival partitioning, read replicas, and extensive
-reporting indexes are deferred to relevant measured workloads. No EXPLAIN or
-N+1-performance claim is made from an empty database.
+Archival partitioning, read replicas, and extensive reporting indexes remain
+deferred. M6 introduces actual search indexes and seeded plan checks below.
 
 M4 adds `ix_organizations_creator` for creator quota counting. Existing tenant
 role/member indexes support bounded directory queries; no benchmarked query tuning
@@ -80,3 +78,27 @@ and `ix_command_receipts_request` for tenant/request ledger lookups. The receipt
 supports organization/actor/key lookup. Reviewer queries use existing tenant role
 assignment indexes and active account/membership predicates; deterministic order
 can require sorting. No measured EXPLAIN/load optimization claim is made yet.
+
+## M6 search indexes and evidence
+
+- `ix_requests_search_document`: GIN on generated tsvector; literal token search.
+- `ix_requests_org_created`: organization then immutable `(created_at DESC,id DESC)`;
+  supports both forward/backward B-tree scans and tuple cursor bounds.
+- `ix_decisions_org_reviewer_request`: reviewer-history EXISTS lookup; no duplicated
+  list rows for multiple decisions.
+- Existing requester/status indexes serve OWN and selective status queries; existing
+  partial active-inbox and membership-role indexes support reviewer eligibility.
+  PostgreSQL may choose a different plan as distributions change.
+
+RequestSearchRepository builds one summary query and active-step join; there are
+no per-result step/detail queries. Authorization resolution has its own bounded
+queries, so “one query” refers to result hydration, not the entire HTTP request.
+No query is forced to use an index and result bounds do not bound all scanned rows.
+FTS can require a bitmap heap scan and sort; highly common terms can be expensive.
+Do not add every possible filter combination as another index.
+
+Seeded evidence: [Milestone 6 verification](../verification/milestone-6.md).
+The GIN pending list initially made a tenant-index plan cheaper after the bulk
+fixture insertion. Normal VACUUM (ANALYZE) maintenance produced the expected GIN
+rare-term plan; tests preserve that setup. Monitor vacuum/GIN maintenance rather
+than disabling planner options or promising the same plan for every term.
