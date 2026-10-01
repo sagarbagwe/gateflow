@@ -17,6 +17,8 @@ if result.returncode:
 services = json.loads(result.stdout)["services"]
 postgres = services["postgres"]
 config = postgres["environment"]
+if config["POSTGRES_PASSWORD"] == "replace-with-a-unique-local-password":
+    raise SystemExit("Replace the private PostgreSQL password placeholder before starting.")
 port = postgres["ports"][0]["published"]
 env = dict(os.environ, DATABASE_URL=f"jdbc:postgresql://127.0.0.1:{port}/{config['POSTGRES_DB']}",
            DATABASE_USER=config["POSTGRES_USER"], DATABASE_PASSWORD=config["POSTGRES_PASSWORD"],
@@ -27,6 +29,14 @@ if redis["environment"]["REDIS_PASSWORD"] == "replace-with-a-unique-redis-passwo
 env.update(REDIS_HOST="127.0.0.1", REDIS_PORT=str(redis["ports"][0]["published"]),
            REDIS_PASSWORD=redis["environment"]["REDIS_PASSWORD"],
            PUBLISHED_POLICY_CACHE_ENABLED=env.get("PUBLISHED_POLICY_CACHE_ENABLED", "true"))
+broker = services["rabbitmq"]
+if broker["environment"]["RABBITMQ_DEFAULT_PASS"] == "replace-with-a-unique-rabbitmq-password":
+    raise SystemExit("Replace the private RabbitMQ password placeholder before starting.")
+env.update(RABBITMQ_HOST="127.0.0.1", RABBITMQ_PORT=str(broker["ports"][0]["published"]),
+           RABBITMQ_USERNAME=broker["environment"]["RABBITMQ_DEFAULT_USER"],
+           RABBITMQ_PASSWORD=broker["environment"]["RABBITMQ_DEFAULT_PASS"],
+           RABBITMQ_VHOST=broker["environment"]["RABBITMQ_DEFAULT_VHOST"],
+           ASYNC_ENABLED=env.get("ASYNC_ENABLED", "true"))
 # This is explicitly a loopback development launcher, not a production entrypoint.
 if args.jar:
     jar = root / "backend/target/gateflow-backend-0.1.0-SNAPSHOT.jar"

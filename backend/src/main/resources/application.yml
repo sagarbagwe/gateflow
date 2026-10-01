@@ -20,6 +20,21 @@ spring:
         enabled: ${REDIS_SSL:false}
       repositories:
         enabled: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    connection-timeout: 2s
+    requested-heartbeat: 10s
+    channel-rpc-timeout: 3000
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    ssl:
+      enabled: ${RABBITMQ_SSL:false}
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -43,6 +58,17 @@ spring:
       fail-on-unknown-properties: true
       fail-on-numbers-for-enums: true
 gateflow:
+  async:
+    enabled: ${ASYNC_ENABLED:false}
+    relay-enabled: ${ASYNC_RELAY_ENABLED:true}
+    consumer-enabled: ${ASYNC_CONSUMER_ENABLED:true}
+    batch-size: ${ASYNC_BATCH_SIZE:20}
+    poll-interval-ms: ${ASYNC_POLL_INTERVAL_MS:1000}
+    confirm-timeout: ${ASYNC_CONFIRM_TIMEOUT:PT2S}
+    lease-duration: ${ASYNC_LEASE_DURATION:PT30S}
+    retry-base: ${ASYNC_RETRY_BASE:PT1S}
+    retry-max: ${ASYNC_RETRY_MAX:PT1M}
+    retry-delays: [5s, 30s, 120s]
   cache:
     workflow:
       enabled: ${PUBLISHED_POLICY_CACHE_ENABLED:false}

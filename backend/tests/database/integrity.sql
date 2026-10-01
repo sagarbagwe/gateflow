@@ -36,6 +36,7 @@ DECLARE
     step_a uuid := gen_random_uuid(); step_a2 uuid := gen_random_uuid(); step_b uuid := gen_random_uuid();
     request_a uuid := gen_random_uuid(); instance_a uuid := gen_random_uuid();
     decision_a uuid := gen_random_uuid(); audit_a uuid := gen_random_uuid();
+    event_a uuid := gen_random_uuid();
     affected integer;
 BEGIN
     PERFORM pg_temp.assert_true('thirteen permission codes seeded', (SELECT count(*) = 13 FROM permissions));
@@ -226,6 +227,37 @@ BEGIN
     UPDATE requests SET title='Updated Neptune',description='Replacement' WHERE id=audit_a;
     PERFORM pg_temp.assert_true('draft search vector updates automatically',
         (SELECT search_document @@ plainto_tsquery('simple','neptune replacement') AND NOT search_document @@ plainto_tsquery('simple','original') FROM requests WHERE id=audit_a));
+    INSERT INTO outbox_events(id,organization_id,request_id,request_version,actor_membership_id,event_type,request_state,correlation_id)
+        VALUES(event_a,org_a,request_a,0,member_a,'REQUEST_SUBMITTED','IN_REVIEW','m8-fixture');
+    PERFORM pg_temp.assert_true('three async tables created',
+        (SELECT count(*)=3 FROM information_schema.tables WHERE table_schema='public' AND table_name IN('outbox_events','processed_events','request_activity')));
+    PERFORM pg_temp.expect_failure('outbox actor scoped to tenant',
+        format('INSERT INTO outbox_events(organization_id,request_id,request_version,actor_membership_id,event_type,request_state,correlation_id) VALUES(%L,%L,1,%L,''REQUEST_WITHDRAWN'',''WITHDRAWN'',''test'')',org_a,request_a,member_b),'23503');
+    PERFORM pg_temp.expect_failure('outbox request scoped to tenant',
+        format('INSERT INTO outbox_events(organization_id,request_id,request_version,actor_membership_id,event_type,request_state,correlation_id) VALUES(%L,%L,1,%L,''REQUEST_WITHDRAWN'',''WITHDRAWN'',''test'')',org_b,request_a,member_b),'23503');
+    PERFORM pg_temp.expect_failure('event unique per request version',
+        format('INSERT INTO outbox_events(organization_id,request_id,request_version,actor_membership_id,event_type,request_state,correlation_id) VALUES(%L,%L,0,%L,''REQUEST_SUBMITTED'',''IN_REVIEW'',''test'')',org_a,request_a,member_a),'23505');
+    PERFORM pg_temp.expect_failure('outbox content immutable',format('UPDATE outbox_events SET correlation_id=''forged'' WHERE id=%L',event_a),'55000');
+    PERFORM pg_temp.expect_failure('outbox delete rejected',format('DELETE FROM outbox_events WHERE id=%L',event_a),'55000');
+    PERFORM pg_temp.expect_failure('outbox truncate rejected','TRUNCATE outbox_events CASCADE','55000');
+    PERFORM pg_temp.expect_failure('lease fields paired',format('UPDATE outbox_events SET lease_token=gen_random_uuid() WHERE id=%L',event_a),'23514');
+    UPDATE outbox_events SET attempts=1,lease_token=gen_random_uuid(),lease_until=clock_timestamp()+interval '30 seconds' WHERE id=event_a;
+    PERFORM pg_temp.expect_failure('attempt counter monotonic',format('UPDATE outbox_events SET attempts=0 WHERE id=%L',event_a),'55000');
+    UPDATE outbox_events SET published_at=clock_timestamp(),lease_token=NULL,lease_until=NULL WHERE id=event_a;
+    PERFORM pg_temp.expect_failure('published metadata frozen',format('UPDATE outbox_events SET attempts=2 WHERE id=%L',event_a),'55000');
+    INSERT INTO processed_events(consumer_name,event_id,organization_id) VALUES('activity_projection_v1',event_a,org_a);
+    PERFORM pg_temp.expect_failure('consumer receipt unique',format('INSERT INTO processed_events(consumer_name,event_id,organization_id) VALUES(''activity_projection_v1'',%L,%L)',event_a,org_a),'23505');
+    PERFORM pg_temp.expect_failure('consumer receipt tenant scoped',format('INSERT INTO processed_events(consumer_name,event_id,organization_id) VALUES(''other'',%L,%L)',event_a,org_b),'23503');
+    PERFORM pg_temp.expect_failure('receipt update blocked','UPDATE processed_events SET consumer_name=''forged''','55000');
+    PERFORM pg_temp.expect_failure('receipt delete blocked','DELETE FROM processed_events','55000');
+    PERFORM pg_temp.expect_failure('receipt truncate blocked','TRUNCATE processed_events','55000');
+    INSERT INTO request_activity(event_id,organization_id,request_id,request_version,actor_membership_id,step_id,event_type,request_state,occurred_at)
+        SELECT id,organization_id,request_id,request_version,actor_membership_id,step_id,event_type,request_state,occurred_at FROM outbox_events WHERE id=event_a;
+    PERFORM pg_temp.expect_failure('activity update blocked','UPDATE request_activity SET event_type=''forged''','55000');
+    PERFORM pg_temp.expect_failure('activity delete blocked','DELETE FROM request_activity','55000');
+    PERFORM pg_temp.expect_failure('activity truncate blocked','TRUNCATE request_activity','55000');
+    PERFORM pg_temp.assert_true('activity copied from authoritative event',
+        (SELECT request_id=request_a AND request_version=0 AND event_type='REQUEST_SUBMITTED' FROM request_activity WHERE event_id=event_a));
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;

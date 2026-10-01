@@ -10,9 +10,9 @@ were run by the agent; these commands document how to reproduce them.
 
 ```sh
 cp .env.example .env
-# Set POSTGRES_PASSWORD to a unique local value; keep .env private.
+# Replace all PostgreSQL, Redis and RabbitMQ password placeholders with distinct private values.
 bash scripts/check.sh
-bash scripts/dev-db.sh up
+docker compose up -d --wait
 bash scripts/dev-db.sh status
 bash scripts/migrate-db.sh migrate
 bash scripts/migrate-db.sh validate
@@ -77,7 +77,8 @@ PostgreSQL volume. Back up anything needed first; never use this on production.
 - `.env`: local values, ignored by Git.
 - Production: managed secrets and restricted networking; not this Compose file.
 - Authentication APIs exist as a separately launched Spring Boot process. No
-  Redis, RabbitMQ, workflow APIs, or UI exist yet. Flyway is a one-shot tools profile;
+  UI or notification delivery exists yet. Redis policy cache, RabbitMQ activity
+  worker and workflow APIs are implemented. Flyway is a one-shot tools profile;
   PostgreSQL/Flyway images are digest-pinned.
 
 ## Verification rules
@@ -139,3 +140,13 @@ Full Maven verify now includes fresh authenticated Redis/Testcontainers fixtures
 The eviction/OOM/paused-server tests change only their disposable test container,
 restore configuration/unpause in finally, and remove entire containers at cleanup.
 See [cache](cache/workflow-policy.md) and [verification](verification/milestone-7.md).
+
+## M8 RabbitMQ local environment
+
+Configure the RABBITMQ_* fields in private .env. The digest-pinned 4.2.9 broker has
+persistent named storage and an authenticated loopback AMQP port; no management
+web UI is exposed. The dev launcher enables async by default. Changing init env
+variables does not rotate stored credentials. `down --volumes` also destroys broker
+history, not only PostgreSQL. `dev-db.sh up/logs` intentionally target PostgreSQL;
+use `docker compose up -d --wait` for all dependencies. Queue types/TTL arguments
+require a versioned migration plan if changed. One local node is not HA.

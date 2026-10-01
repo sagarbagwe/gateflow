@@ -1,7 +1,7 @@
 # Database design
 
 Current schema: fourteen core tables, two authentication tables and one command
-receipt ledger (17 application tables, excluding Flyway history). Authentication,
+receipt ledger plus three asynchronous tables (20 application tables, excluding Flyway history). Authentication,
 RBAC and sequential workflow APIs exist. V1–V5 are unchanged; V6 adds core-command
 metadata, guards and one product permission.
 
@@ -112,8 +112,8 @@ persistence; there is no API accepting a client-provided password hash.
 ## Explicitly deferred tables
 
 JWT/refresh-token storage is deliberately not used: M3 implements opaque sessions.
-Submission idempotency (M5), outbox/inbox deduplication
-(M8), notifications/preferences/delivery attempts (M9), workflow dependency graphs
+Submission command receipts (M5) and outbox/consumer deduplication (M8) are implemented.
+Still deferred: notifications/preferences/delivery attempts (M9), workflow dependency graphs
 and quorum reviewers (when advanced flows are approved). No generic projects/tasks
 are included because GateFlow is a request/approval product, not a task tracker.
 
@@ -154,3 +154,21 @@ are included because GateFlow is a request/approval product, not a task tracker.
 field or a new entity. Creation coordinates are immutable even for legacy drafts.
 Read summaries expose created_at with UUID tie-breaker; source payload and decision
 history still live in their original tables. See [search API](../api/search.md).
+
+## M8 durable asynchronous storage (V9)
+
+- outbox_events: immutable event ID/schema/tenant/request/version/actor/step/type/
+  state/correlation/time; only pending relay lease/attempt/retry metadata can change.
+  One event per tenant/request/version; published metadata is frozen. Composite
+  tenant FKs scope request, actor and optional step provenance. Business command,
+  audit, receipt and event commit or roll back together.
+- processed_events: `(consumer_name,event_id)` primary key with source tenant FK;
+  append-only per-consumer receipt, not an authentication or command receipt.
+- request_activity: event ID PK, tenant/request/version unique index, actor/optional
+  step/type/state/event-time/projection-time. The projector copies authoritative
+  source fields via INSERT SELECT. Tenant FKs cover source event, request and actor;
+  they do not independently enforce equality of every copied event field, so runtime
+  insert privileges must remain restricted. No ordinary update/delete/truncate.
+
+Nine migrations total; V1–V8 remain untouched. There is no historical event backfill.
+[Delivery contract](../async/event-delivery.md) records retention and recovery limits.

@@ -22,7 +22,7 @@ application passwords are used; integration users are disposable fixtures.
 ## Local execution
 
 ```sh
-bash scripts/dev-db.sh up
+docker compose up -d --wait
 python3 scripts/run-backend.py --jar
 ```
 
@@ -61,3 +61,11 @@ See [Search API](../docs/api/search.md) and [verification](../docs/verification/
 M7 caches authorized published-policy reads only. Core commands and permission
 checks stay PostgreSQL-backed. See [cache contract](../docs/cache/workflow-policy.md)
 and [verification](../docs/verification/milestone-7.md).
+
+M8 adds a Spring AMQP relay and activity consumer, both from the same modular backend.
+Start dependencies with `docker compose up -d --wait` before the dev launcher.
+Outside the launcher enable `ASYNC_ENABLED=true` and provide RABBITMQ_HOST/PORT/
+USERNAME/PASSWORD/VHOST; TLS via RABBITMQ_TLS_ENABLED. Defaults are opt-in; pending
+events still accumulate when disabled. ASYNC_RELAY_ENABLED / ASYNC_CONSUMER_ENABLED
+control background roles independently. See [delivery configuration/runbook](../docs/async/event-delivery.md),
+[Activity API](../docs/api/activity.md) and [M8 evidence](../docs/verification/milestone-8.md).

@@ -3,7 +3,7 @@
 Mermaid renders on GitHub. Every tenant-owned relationship also uses tenant-aware
 composite foreign keys; arrows alone do not show all composite key columns.
 Draft requests may be unbound until submission. M3 adds global auth-session and
-rate-limit storage. M5 adds command receipts; notification/outbox tables remain deferred.
+rate-limit storage. M5 adds command receipts; M8 adds outbox, consumer receipts and activity. Notifications remain deferred.
 
 ```mermaid
 erDiagram
@@ -140,6 +140,39 @@ erDiagram
         char payload_hash
         uuid request_id FK
         timestamptz created_at
+    }
+    REQUESTS ||--o{ OUTBOX_EVENTS : emits
+    MEMBERSHIPS ||--o{ OUTBOX_EVENTS : actor
+    REQUEST_STEPS o|--o{ OUTBOX_EVENTS : optional_step
+    OUTBOX_EVENTS ||--o{ PROCESSED_EVENTS : consumed_by
+    OUTBOX_EVENTS ||--o| REQUEST_ACTIVITY : projected
+    REQUESTS ||--o{ REQUEST_ACTIVITY : timeline
+    OUTBOX_EVENTS {
+        uuid id PK
+        uuid organization_id FK
+        uuid request_id FK
+        bigint request_version UK
+        uuid actor_membership_id FK
+        uuid step_id FK
+        varchar event_type
+        varchar request_state
+        uuid lease_token
+        timestamptz lease_until
+        timestamptz published_at
+    }
+    PROCESSED_EVENTS {
+        varchar consumer_name PK
+        uuid event_id PK,FK
+        uuid organization_id FK
+        timestamptz processed_at
+    }
+    REQUEST_ACTIVITY {
+        uuid event_id PK,FK
+        uuid organization_id FK
+        uuid request_id FK
+        bigint request_version UK
+        timestamptz occurred_at
+        timestamptz projected_at
     }
     AUDIT_LOGS {
         uuid id PK

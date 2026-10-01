@@ -210,3 +210,27 @@ reduce synchronized refreshes; misses can still duplicate work. No artificial
 handwritten LRU or lock is added to demonstrate DSA. Lua TYPE/STRLEN+bounded GET and
 UNLINK avoid transferring a huge corrupt value or synchronously deleting a large
 wrong-type aggregate. This is a cache-aside pattern, not domain event delivery.
+
+## M8 asynchronous boundaries
+
+| Class | Responsibility |
+| --- | --- |
+| OutboxRepository | Mandatory command append, short fenced claim/mark/retry transactions |
+| OutboxRelay | Bounded scheduled claims, confirmed publication, exponential retry |
+| ConfirmedEventPublisher | Correlated confirms, mandatory returns and sanitized transport failures |
+| EventReferenceCodec | Strict bounded reference and attempt validation |
+| ActivityConsumer | Manual ACK, bounded retry/DLQ handoff and recoverable handoff failure |
+| ActivityProjector | Transactional receipt plus authoritative INSERT SELECT projection |
+| AsyncConfiguration / AsyncProperties | Durable topology, listener tuning, validated configuration |
+| RequestActivityService / Controller | Fresh authorized, bounded eventual timeline read |
+
+Constructor injection keeps command transactions independent of broker transport.
+The Spring transaction proxy for ActivityProjector is a separate bean: returning
+from process means commit completed before ACK. Local relay overlap prevention uses
+a ReentrantLock; cross-process correctness comes from PostgreSQL leases, not that
+local lock. Records represent immutable event/claim/response values. This implements
+transactional-outbox, repository and event-consumer patterns; no speculative Factory,
+universal event bus, distributed lock service or premature email abstraction.
+
+[Delivery contract](../async/event-delivery.md) explains why/how/alternatives/failure/
+scale and genuine bounded scheduling/index algorithm complexity.

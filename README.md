@@ -2,10 +2,10 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 7 — bounded published-policy Redis cache.**
-> Authentication/RBAC, sequential workflows, search/inbox and immutable policy
-> cache-aside reads work. Authorization and commands remain PostgreSQL-backed.
-> Frontend, queues, CI and production deployment remain later milestones.
+> **Status: Milestone 8 — durable asynchronous request activity.**
+> Authentication/RBAC, sequential workflows, search and bounded policy caching work.
+> Transactional outbox + RabbitMQ project activity with retry/DLQ and deduplication.
+> Frontend, notifications, CI and production deployment remain later milestones.
 
 ## Problem
 
@@ -16,12 +16,12 @@ and a reliable record of decisions.
 ## Solution
 
 GateFlow binds each submitted request to a published workflow version,
-activate eligible review steps, enforce authorized state transitions, and record
+activates eligible review steps, enforces authorized state transitions, and records
 the outcome. It approves requests; it does not execute payments or provision access.
 
 ## Features
 
-**Implemented:** repository/architecture, seventeen application tables, eight
+**Implemented:** repository/architecture, twenty application tables, nine
 Flyway migrations, ER/index/transaction docs, Spring Boot authentication, BCrypt,
 hashed opaque sessions, CSRF/secure-cookie handling, shared auth rate limiting,
 validation/errors/request IDs, organization RBAC with safe delegation, protected
@@ -30,10 +30,11 @@ tests, versioned conditional workflows, concurrency-safe decisions/withdrawal,
 durable idempotency receipts, reviewer reassignment, tenant-safe full-text search,
 active reviewer inbox, status/type/workflow/date filters, bounded cursor/offset
 navigation, additive upgrade checks, published-policy Redis cache-aside with expiry/
-invalidation/outage fallback, bounded authenticated Redis infrastructure, and local
-build/run tooling.
+invalidation/outage fallback, bounded authenticated Redis infrastructure, transactional
+request outbox, confirmed RabbitMQ publication, idempotent activity projection,
+manual acknowledgments, delayed retries, dead-letter recovery, and local build/run tooling.
 
-**Planned:** notification preferences, durable background delivery,
+**Planned:** notification preferences and provider delivery,
 comprehensive audit browsing/retention, and broader workflow policies. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
@@ -41,16 +42,18 @@ escalation follow a working sequential workflow. See [milestones](docs/milestone
 
 Start with a modular monolith. Domain modules own their rules; controllers adapt
 HTTP requests; persistence and provider adapters remain outside domain logic.
-A separate worker deployment from the same codebase is a later scaling option.
+The relay and activity worker run in the monolith; independent role flags permit
+worker deployments from the same artifact as a later scaling option.
 
 ```mermaid
 flowchart LR
     Browser[React UI - planned] --> API[Spring Boot auth, RBAC, workflows and search]
     API --> DB[(PostgreSQL)]
     API -- published policy read cache --> Redis[(Redis)]
-    DB -. later outbox publisher .-> Queue[RabbitMQ - later]
-    Queue -.-> Worker[Worker - later]
-    Worker -.-> Mail[Email provider - later]
+    DB -- transactional outbox relay --> Queue[RabbitMQ]
+    Queue --> Worker[Activity worker]
+    Worker -- receipt + timeline transaction --> DB
+    Queue -. future separate subscriber .-> Mail[Notifications / email - M9]
 ```
 
 See [system design](docs/architecture/system-design.md).
@@ -64,7 +67,7 @@ See [system design](docs/architecture/system-design.md).
 | JPA/Hibernate, JDBC, PostgreSQL 17 | Relational identity/policy, transactional commands and durable receipts | Implemented core/auth schema |
 | Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
 | Redis 7.4.11, Spring Data Redis/Lettuce | Published-policy read cache only; auth rate limits remain PostgreSQL | Milestone 7 implemented |
-| RabbitMQ | Durable background jobs | Milestone 8 |
+| RabbitMQ 4.2.9, Spring AMQP | Confirmed durable activity delivery, retries and DLQ | Milestone 8 implemented |
 | React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
 | JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
 | Docker Compose, GitHub Actions | Local dependencies and CI | Dependency Compose now; CI later |
@@ -84,7 +87,7 @@ No comprehensive vulnerability or production-capacity claim is made yet.
 [transaction boundaries](docs/database/transactions.md), and
 [Flyway operations](docs/database/migrations.md). Production will not use automatic
 ORM schema creation. Authentication, RBAC and sequential approval behavior are
-implemented; parallel/async behavior remains future work.
+implemented; activity processing is asynchronous; parallel approvals remain future work.
 
 ## API Documentation
 
@@ -95,6 +98,7 @@ withdraw/reassign) are implemented in [Core workflow API](docs/api/workflows.md)
 [RBAC API](docs/api/rbac.md) documents organization/role/membership commands.
 [Search API](docs/api/search.md) documents request summaries, reviewer inbox,
 filter semantics and cursor consistency/security limits.
+[Activity API](docs/api/activity.md) documents the eventually consistent request timeline.
 Full OpenAPI review is Milestone 12.
 
 ## Local Development
@@ -105,7 +109,7 @@ documentation, not a requirement for the user to execute it locally.
 
 ```sh
 cp .env.example .env
-# Edit .env: replace both PostgreSQL and URL-safe Redis password placeholders.
+# Edit .env: replace PostgreSQL, Redis and RabbitMQ password placeholders.
 bash scripts/check.sh
 docker compose up -d --wait
 bash scripts/dev-db.sh status
@@ -115,9 +119,9 @@ bash scripts/test-backend.sh
 python3 scripts/run-backend.py --jar
 ```
 
-The start command rejects the unchanged password placeholder. Alternatively,
-after configuring `.env`, run `docker compose up -d --wait` directly. At this
-milestone Compose starts **PostgreSQL and cache-only Redis**; the
+The development launcher rejects unchanged password placeholders. Compose requires
+configured values but does not enforce password strength; use distinct private secrets.
+At this milestone Compose starts **PostgreSQL, cache-only Redis and RabbitMQ**; the
 Spring Boot backend is run separately by the development launcher. Full app
 containerization remains Milestone 16.
 
@@ -143,12 +147,12 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: **191 tests** (81 unit,
-106 real HTTP/PostgreSQL/Redis, four PostgreSQL migration/index tests), zero
-failures/errors/skips, and packages the executable JAR. The unchanged database
-suite passes **83 checks**. **32 packaged Redis/API smoke assertions** plus targeted
-cache-key and disposable DB cleanup passed. Failure-sensitive Redis repeat runs
-are recorded in [Milestone 7 evidence](docs/verification/milestone-7.md).
+`bash scripts/test-backend.sh` runs Maven verify: **227 tests** (97 unit,
+125 real HTTP/PostgreSQL/Redis/RabbitMQ, five PostgreSQL migration/index tests), zero
+failures/errors/skips, and packages the executable JAR. The database suite passes
+**102 checks**. Actual packaged application and failure-sensitive fresh-container
+repeats are recorded in [Milestone 8 evidence](docs/verification/milestone-8.md).
+Earlier Redis verification remains in [Milestone 7 evidence](docs/verification/milestone-7.md).
 Earlier [search](docs/verification/milestone-6.md),
 [core workflow](docs/verification/milestone-5.md),
 [RBAC](docs/verification/milestone-4.md) and
@@ -156,13 +160,14 @@ Earlier [search](docs/verification/milestone-6.md),
 
 ## Docker
 
-Local PostgreSQL uses persistent storage; Redis is a reconstructible 128-MiB
-allkeys-lru cache with no disk persistence. Both use readiness checks and
+Local PostgreSQL and RabbitMQ use persistent storage; Redis is a reconstructible
+128-MiB allkeys-lru cache with no disk persistence. All use readiness checks and
 authenticated loopback-only host ports. Redis runs unprivileged/read-only with
-dropped capabilities and private tmpfs config. PostgreSQL, Redis and Flyway use
+dropped capabilities and private tmpfs config. PostgreSQL, Redis, RabbitMQ and Flyway use
 tested image digests;
 updates require explicit review and migration tests. Flyway is a one-shot tools
-profile, not a long-running application. Application Dockerfiles and a full local
+profile, not a long-running application. A one-node broker is not highly available.
+Application Dockerfiles and a full local
 stack are intentionally deferred. Production image scanning is still future work.
 
 ## CI/CD
@@ -199,7 +204,11 @@ least privilege, ingress hardening and dependency review remain unfinished.
 A modular monolith favors understandable transactions and low operational cost
 over premature service boundaries. PostgreSQL search comes before a separate
 search cluster. RabbitMQ serves background delivery; Kafka is not required for
-our initial workload. See [architecture decisions](docs/decisions/README.md).
+our initial workload. Delivery is at least once, with a deduplicated database
+projection—not exactly-once messaging or external email. Timeline reads can lag
+committed state. Queue bounds do not solve long-term outbox retention.
+See [delivery and recovery contract](docs/async/event-delivery.md) and
+[architecture decisions](docs/decisions/README.md).
 
 ## Future Improvements
 

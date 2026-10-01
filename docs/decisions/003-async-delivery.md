@@ -1,6 +1,7 @@
 # ADR 003: Defer infrastructure; later use RabbitMQ with an outbox
 
-Status: accepted direction; not implemented until Milestone 8.
+Status: direction implemented in Milestone 8 for activity projection; email remains M9.
+See [ADR 010](010-transactional-request-events.md) for the delivered contract.
 
 ## Context
 

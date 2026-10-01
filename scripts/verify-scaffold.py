@@ -13,6 +13,9 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/async/event-delivery.md", "docs/api/activity.md",
+    "docs/decisions/010-transactional-request-events.md", "docs/verification/milestone-8.md",
+    "backend/src/main/resources/db/migration/V9__add_transactional_outbox.sql",
     "docs/cache/workflow-policy.md", "docs/decisions/009-published-policy-cache.md",
     "docs/verification/milestone-7.md",
     "docs/api/search.md", "docs/decisions/008-postgresql-search-keyset.md",
@@ -57,6 +60,9 @@ check('127.0.0.1:${REDIS_PORT:-6379}:6379' in compose, "Redis host binding is lo
 check(env["REDIS_PASSWORD"] == "replace-with-a-unique-redis-password", "Redis example password is a placeholder")
 check('maxmemory 128mb' in compose and 'maxmemory-policy allkeys-lru' in compose,
       "Redis cache has bounded memory and reconstructible-data eviction policy")
+check('127.0.0.1:${RABBITMQ_PORT:-5672}:5672' in compose, "RabbitMQ host binding is loopback-only")
+check(env["RABBITMQ_PASSWORD"] == "replace-with-a-unique-rabbitmq-password", "RabbitMQ example password is a placeholder")
+check('rabbitmq_data:/var/lib/rabbitmq' in compose and 'rabbitmq-diagnostics' in compose, "RabbitMQ durable storage and health check configured")
 check('postgres_data:/var/lib/postgresql/data' in compose,
       "PostgreSQL 17 data directory has a named volume")
 check('pg_isready' in compose and '$$POSTGRES_USER' in compose

@@ -94,3 +94,15 @@ snapshot, then uses cache-aside for step hydration. Redis is not part of a DB co
 protocol: writes do not populate it, and reads observe only committed published data.
 No cache participates in approval/audit/receipt transactions. Source DB failure
 remains a failed read even if Redis is warm. No new migration or schema table.
+
+## M8 event boundaries
+
+Command transactions append outbox rows after their audit and before command receipt
+commit. No broker call runs inside those transactions. Source insert failure proves
+business/audit/receipt rollback. Relay claims/marks/failures use REQUIRES_NEW, with
+broker publish between transactions; stale lease tokens cannot overwrite new claims.
+Consumer dedup receipt and activity INSERT SELECT share one Spring transaction;
+manual ACK follows its return. Unknown source references are permanent failures;
+DB/runtime processing errors use bounded broker retries. Activity reads use fresh
+membership/resource authorization and REPEATABLE_READ. No two-system atomicity or
+FIFO processing is assumed. See [delivery contract](../async/event-delivery.md).

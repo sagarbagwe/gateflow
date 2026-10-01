@@ -47,6 +47,27 @@ services:
       retries: 10
       start_period: 5s
 
+  rabbitmq:
+    image: rabbitmq:4.2@sha256:3e96f87bcaa24ee025edd961e449b97036a323ff67f884099858fa6305f43c28
+    hostname: gateflow-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:?Set RABBITMQ_VHOST in .env}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +A 2 -rabbit max_message_size 65536"
+      RABBITMQ_CTL_ERL_ARGS: "+S 1:1 +A 1"
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, check_running]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
   flyway:
     # One-shot tool, not an application service. Verified Flyway OSS 13.8.1.
     image: flyway/flyway:13.8.1-alpine@sha256:ca3c8eddac25811f84c9767c56a0610ce23cd4e61f59bb05778a78db42347b39
@@ -69,3 +90,4 @@ services:
 
 volumes:
   postgres_data:
+  rabbitmq_data:

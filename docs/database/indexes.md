@@ -102,3 +102,16 @@ The GIN pending list initially made a tenant-index plan cheaper after the bulk
 fixture insertion. Normal VACUUM (ANALYZE) maintenance produced the expected GIN
 rare-term plan; tests preserve that setup. Monitor vacuum/GIN maintenance rather
 than disabling planner options or promising the same plan for every term.
+
+## M8 asynchronous indexes
+
+`ix_outbox_pending(available_at,occurred_at,id) WHERE published_at IS NULL` limits
+relay candidates to unfinished work. Claim SQL orders by occurred_at/id and may
+sort eligible candidates; lease predicates/locked rows can still require scanning.
+Do not claim index-only constant-time draining or measured throughput.
+`UNIQUE(organization_id,request_id,request_version)` rejects duplicate source events
+and supports descending per-request activity pages on request_activity.
+`processed_events(consumer_name,event_id)` serializes competing duplicate effects.
+Source PK and `(organization_id,id)` support authoritative reference and tenant FK
+lookups. `ux_request_steps_event_scope` supports same-request step provenance.
+Watch index/storage growth; retention is not implemented in M8.

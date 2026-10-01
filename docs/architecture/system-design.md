@@ -1,10 +1,10 @@
 # System design
 
-Status: implemented authentication, organization RBAC and sequential workflow
-engine (M3–M5). Six Flyway migrations, workflow/request APIs, durable command
-receipts, transactional audits and storage/security/race tests exist. UI, cache,
-broker and worker are not built.
-Dashed/future components below remain plans.
+Status: Milestones 1–8 implemented: authentication, organization RBAC, sequential
+workflows, search, bounded policy cache and durable asynchronous activity. Nine
+Flyway migrations / 20 application tables. Frontend, notifications, full metrics,
+CI and production deployment remain later milestones. Older future-flow sketches
+below describe eventual notification processing, not an implemented email provider.
 
 Implemented storage model: [schema](../database/schema.md),
 [ER diagram](../database/er-diagram.md), [indexes](../database/indexes.md), and
@@ -18,7 +18,7 @@ Implemented storage model: [schema](../database/schema.md),
 4. Eligible reviewers approve/reject active steps; invalid transitions fail.
 5. Requesters see status and may withdraw where the lifecycle allows it.
 6. Users search only requests they are authorized to see.
-7. Decisions generate audit evidence and asynchronous notifications.
+7. Decisions generate atomic audit evidence and asynchronous activity; notifications follow in M9.
 8. Later: parallel review, deadlines, reminders, and escalation.
 
 ## Non-functional requirements
@@ -45,17 +45,17 @@ Implemented storage model: [schema](../database/schema.md),
 The backend is one Spring Boot deployment with module boundaries, not six network
 services. Logical table ownership discourages cross-module repository access;
 application services coordinate operations requiring one database transaction.
-The UI is a React/TypeScript SPA. A worker can later run from the same codebase.
+The planned UI is a React/TypeScript SPA. Activity runs in the monolith today;
+independent worker deployment can use the same codebase.
 
 ## Components and external systems
 
 - **HTTP API:** authenticates, validates, authorizes, dispatches commands/queries.
 - **PostgreSQL:** authoritative business state and relational constraints.
-- **Redis (later):** cache of published definitions and shared rate limits;
-  never the authoritative approval record.
-- **Outbox publisher (later):** moves committed events to RabbitMQ.
-- **RabbitMQ (later):** background jobs with acknowledgments and dead-letter routing.
-- **Worker (later):** notification processing, bounded retries, eventual reminders.
+- **Redis:** bounded cache of published definitions only; rate limits remain PostgreSQL.
+- **Outbox relay:** publishes committed request references using fenced leases/confirms.
+- **RabbitMQ:** durable activity quorum queues, retries and dead-letter routing.
+- **Activity worker:** deduplicated PostgreSQL timeline; notification worker remains M9.
 - **Email adapter (later):** provider-specific integration behind an interface.
 - **Observability (incremental):** request IDs/basic logs first; metrics and traces later.
 
@@ -64,16 +64,16 @@ for the first product. A development email sink precedes any live email provider
 
 ```mermaid
 flowchart TD
-    UI[Browser SPA - planned] --> API[HTTP API - auth implemented]
-    API --> AUTH[Authentication now / product RBAC later]
-    AUTH --> DOMAIN[Auth services now / request modules later]
+    UI[Browser SPA - planned] --> API[HTTP API - auth, RBAC, workflows, search]
+    API --> AUTH[Live authentication and authorization]
+    AUTH --> DOMAIN[Transactional request modules]
     DOMAIN --> PG[(PostgreSQL)]
-    DOMAIN -. cached definitions later .-> REDIS[(Redis)]
-    PG -. committed outbox later .-> PUB[Outbox publisher]
-    PUB -. durable publish .-> MQ[RabbitMQ]
-    MQ -. at-least-once delivery .-> WORK[Worker]
-    WORK -. inbox and delivery records .-> PG
-    WORK -. external side effect .-> EMAIL[Email provider]
+    DOMAIN -- published policy cache --> REDIS[(Redis)]
+    PG -- committed outbox --> PUB[Outbox relay]
+    PUB -- confirmed publish --> MQ[RabbitMQ]
+    MQ -- at-least-once delivery --> WORK[Activity worker]
+    WORK -- receipts and activity --> PG
+    MQ -. future notification subscriber .-> EMAIL[Email provider - M9]
 ```
 
 ## Request flow: approve an active step
@@ -85,8 +85,8 @@ flowchart TD
    step, and lifecycle state inside the command's consistency boundary.
 4. Atomically record the decision and update step/request state. An expected
    version/conditional update detects conflicting state changes.
-5. Record corresponding audit evidence. Once asynchronous delivery is introduced,
-   insert an outbox event in the **same database transaction**.
+5. Record corresponding audit evidence and an outbox event in the
+   **same database transaction** as the request and command receipt.
 6. Commit and return the updated state. Do not call email providers in the transaction.
 
 Final concurrency policy and constraints are specified with the schema and core
@@ -95,19 +95,19 @@ workflow. Early workflow correctness will not wait until Milestone 11.
 ## Asynchronous flow (Milestones 8–9)
 
 1. Business state and outbox event commit together.
-2. Publisher claims a bounded batch and sends persistent messages to a durable queue.
+2. Relay claims one event at a time in a bounded poll and confirms persistent routing.
 3. Mark published only after broker confirmation. A crash after publish but before
    marking may cause a duplicate; this is expected.
 4. Consumer uses event identity and durable unique constraints to deduplicate
    database effects; it acknowledges only after those effects commit.
-5. Delivery retries use capped exponential backoff with jitter. Invalid/permanent
-   failures are not retried indefinitely. Exhausted work goes to a dead-letter path.
+5. Producer retries use capped exponential backoff with jitter; consumer retries
+   use three fixed delay queues. Invalid references and exhausted processing go to DLQ.
 6. External email sends cannot be atomically committed with PostgreSQL. Use a
    stable provider idempotency key when supported; otherwise document the residual
    duplicate-send window and reconcile delivery attempts. Do not promise exactly once.
 
-Outbox leases, retry limits, replay tooling, and event schemas are designed at
-Milestone 8, not prebuilt now. Non-notification external effects require their own design.
+Outbox leases, retry limits and reference schema are implemented in M8. Redrive
+remains a documented operator action, not a public endpoint. Email remains M9.
 
 ## Lifecycle and workflow-version invariants
 
@@ -143,7 +143,7 @@ Storage worksheet (decimal units):
   gives 43.8–65.7 GB. This is not a measured database size and excludes notification
   history, outbox backlog, users/definitions, WAL, backups, and future attachments.
 - Definition cache: 10,000 entries × 8 KB ≈ 80 MB payload; provision additional
-  space for Redis overhead and rate-limit data after measuring cardinality.
+  space for Redis overhead after measuring cardinality; rate-limit storage remains PostgreSQL.
 
 Refine using actual serialized sizes, index sizes, retention, and load tests.
 Do not derive a supported-user claim from this worksheet.
@@ -158,19 +158,20 @@ PostgreSQL indexes/full-text features; no separate search cluster is justified y
 Use Flyway. Production Hibernate configuration validates schema; it does not
 create or update it. Tenant-sensitive relations need constraints preventing a
 request from linking to another organization's workflow or member. The implemented composite keys and storage guards are documented in
-the database design; API read authorization is still future work. Backups and point-in-time recovery require a deployment plan.
+the database design; fresh tenant/resource read authorization is implemented.
+Backups and point-in-time recovery require a deployment plan.
 
-## Caching (later)
+## Caching (implemented in M7)
 
 Cache immutable published workflow definitions by tenant, definition, and version.
-TTL and memory eviction will be documented when implemented. Cache-aside falls
+TTL, bounds and eviction are documented in the M7 contract below. Cache-aside falls
 back to PostgreSQL on cache errors. Publishing creates a new version/key rather
 than silently modifying an old entry. Permission checks remain authoritative;
 cache revocation semantics must be designed before caching authorization.
 
 Rate-limit outage behavior differs from content caching: sensitive auth endpoints
 must not silently lose abuse protection. Choose and test a bounded fallback or
-explicit rejection policy during implementation.
+explicit rejection policy. Current PostgreSQL auth rate limiting fails closed.
 
 ## Scaling strategy
 
@@ -238,7 +239,7 @@ writes for one organization serialize; different organizations can proceed
 independently. This is suitable for infrequent administration, not a benchmarked
 throughput claim. Future workflow throughput should use per-request concurrency
 controls rather than the coarse RBAC lock. Directory pages are bounded and avoid
-per-row role queries; high offset/cursor search tuning remains M6.
+per-row role queries; bounded offset/keyset search is implemented in M6.
 
 ## Implemented M5 synchronous core
 
@@ -254,7 +255,7 @@ request's current representation without repeating the operation.
 Decision/withdraw/reassign: shared tenant authorization lock -> idempotency-key
 lock -> request aggregate row lock -> state/version/resource/assignment eligibility
 -> step/decision/request mutations + audit + receipt -> commit. No network provider
-calls. M8 will write an outbox in this transaction before publishing asynchronously.
+calls. M8 writes an outbox in this transaction before publishing asynchronously.
 
 Horizontal API instances share one PostgreSQL primary, coordinating through
 transaction row/advisory locks; no in-memory grant or key registry is authoritative.
@@ -307,3 +308,29 @@ are deployment work, not achieved by a local Compose container.
 See [cache contract](../cache/workflow-policy.md), [ADR](../decisions/009-published-policy-cache.md)
 and [evidence](../verification/milestone-7.md). This removes ordered-step hydration
 on hits, not all source queries. No measured production latency/scalability claim.
+
+## Implemented M8 async flow and scaling
+
+```mermaid
+flowchart LR
+    API[Authorized command] --> TX[PostgreSQL transaction]
+    TX --> State[Request + audit + receipt + outbox]
+    State --> Relay[Short SKIP LOCKED lease]
+    Relay --> Broker[RabbitMQ confirm + mandatory return]
+    Broker --> Worker[Activity consumer]
+    Worker --> Projection[PostgreSQL receipt + activity transaction]
+    Projection --> Ack[Manual ACK after commit]
+    Worker --> Retry[Activity-only delayed retries]
+    Retry --> Worker
+    Worker --> DLQ[Confirmed dead-letter handoff]
+```
+
+Start relay and worker in the monolith. Independent role flags permit horizontal
+worker/relay deployment from the same artifact; competing DB leases and unique
+consumer receipts prevent conflicting side effects. At-least-once delivery and
+out-of-order arrivals are explicit, not solved by pretending a single FIFO queue
+is a global ordered log. PostgreSQL remains authoritative when the broker is down.
+One-node local quorum is not HA; production service selection is deferred to M18.
+No production throughput claim is derived from correctness/repeat tests.
+
+[Full configuration, backpressure, failure recovery, security and retention limits](../async/event-delivery.md).

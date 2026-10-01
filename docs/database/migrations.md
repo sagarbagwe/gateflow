@@ -97,3 +97,15 @@ their UUID changed by direct SQL. V8 extends the V7 trigger function to reject I
 changes as well as creation-time changes. No new trigger/table/index; V7 had already
 been applied in verification, so it was not edited. The upgrade test proves both
 coordinates fail with 55000, including legacy drafts.
+
+## V9: transactional outbox and activity
+
+Adds three tables and their source/tenant/uniqueness/immutability guards, plus the
+request-step composite index. V1–V8 are unchanged. Standalone upgrade verification
+migrates a populated V8 database to V9, preserves historical migration checksums
+and existing rows, and checks repeated migrate is a no-op. No legacy history is
+invented. Apply additive schema before new command writers. During rollout old
+writers cannot emit M8 events, so pause writers or coordinate deployment if complete
+cutover history is required. Disable transport independently without disabling event
+recording; pending rows persist until relays return. Retention needs a separate,
+reviewed maintenance migration/job—not routine deletes or Flyway clean.

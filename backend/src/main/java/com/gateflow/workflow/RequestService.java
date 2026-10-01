@@ -21,6 +21,7 @@ public class RequestService {
     private final CommandReceipts receipts;
     private final TenantAuditWriter audit;
     private final RequestAccessPolicy access;
+    private final com.gateflow.async.OutboxRepository outbox;
 
     public RequestService(
             RequestRepository repository,
@@ -29,7 +30,8 @@ public class RequestService {
             AuthorizationService authorization,
             CommandReceipts receipts,
             TenantAuditWriter audit,
-            RequestAccessPolicy access) {
+            RequestAccessPolicy access,
+            com.gateflow.async.OutboxRepository outbox) {
         this.repository = repository;
         this.workflows = workflows;
         this.reviewers = reviewers;
@@ -37,6 +39,7 @@ public class RequestService {
         this.receipts = receipts;
         this.audit = audit;
         this.access = access;
+        this.outbox = outbox;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -98,7 +101,13 @@ public class RequestService {
                                     "version",
                                     0),
                             requestId);
-                    return repository.find(org, id, false);
+                    return event(
+                            org,
+                            actor.membershipId(),
+                            id,
+                            com.gateflow.async.OutboxRepository.EventType.REQUEST_SUBMITTED,
+                            null,
+                            requestId);
                 });
     }
 
@@ -191,7 +200,16 @@ public class RequestService {
                                     "decision",
                                     b.decision()),
                             requestId);
-                    return repository.find(org, id, false);
+                    return event(
+                            org,
+                            actor.membershipId(),
+                            id,
+                            b.decision() == Decision.APPROVE
+                                    ? com.gateflow.async.OutboxRepository.EventType.STEP_APPROVED
+                                    : com.gateflow.async.OutboxRepository.EventType
+                                            .REQUEST_REJECTED,
+                            stepId,
+                            requestId);
                 });
     }
 
@@ -223,7 +241,13 @@ public class RequestService {
                             Map.of("state", before.state(), "version", before.version()),
                             Map.of("state", "WITHDRAWN", "version", before.version() + 1),
                             requestId);
-                    return repository.find(org, id, false);
+                    return event(
+                            org,
+                            actor.membershipId(),
+                            id,
+                            com.gateflow.async.OutboxRepository.EventType.REQUEST_WITHDRAWN,
+                            null,
+                            requestId);
                 });
     }
 
@@ -280,8 +304,26 @@ public class RequestService {
                                     "version",
                                     before.version() + 1),
                             requestId);
-                    return repository.find(org, id, false);
+                    return event(
+                            org,
+                            actor.membershipId(),
+                            id,
+                            com.gateflow.async.OutboxRepository.EventType.REVIEWER_REASSIGNED,
+                            stepId,
+                            requestId);
                 });
+    }
+
+    private RequestView event(
+            UUID org,
+            UUID actor,
+            UUID id,
+            com.gateflow.async.OutboxRepository.EventType type,
+            UUID step,
+            String trace) {
+        var result = repository.find(org, id, false);
+        outbox.append(org, actor, type, result, step, trace);
+        return result;
     }
 
     private ExecutionStep step(RequestView request, UUID id) {

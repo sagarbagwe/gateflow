@@ -21,3 +21,5 @@ outbox ownership/retries (M8), and AWS deployment (M18).
 - [ADR 008: PostgreSQL search and keyset pagination](008-postgresql-search-keyset.md)
 
 - [ADR 009: Published policy cache](009-published-policy-cache.md)
+
+- [ADR 010: Transactional request events](010-transactional-request-events.md)
