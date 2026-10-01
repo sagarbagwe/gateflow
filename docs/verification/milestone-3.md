@@ -64,6 +64,20 @@ database cleanup succeeded. V1–V3 applied sources were not modified.
 Auth additions test token-hash format/uniqueness, user FK, expiry consistency, and
 positive limiter counts. Core tenant/workflow/audit integrity checks still pass.
 
+## Packaged application live smoke
+
+Started the executable JAR through the loopback-only development launcher against
+GateFlow's running PostgreSQL. **Ten smoke checks passed:** anonymous denial with
+request ID, signup/session creation, authenticated access, case-insensitive login,
+rotation, old-token rejection, logout 204, post-logout replay denial, anonymous
+state afterward, and cleanup of the disposable live account/sessions.
+
+No temporary password/token was committed or printed. Fixture user, session, and
+account-specific limiter data were removed; ordinary transient IP limiter counters
+may remain until expiry/cleanup. V4 is applied and validated in the GateFlow DB.
+The app was successfully started in the sandbox; this is not a public deployment
+or a promise of persistent hosted availability.
+
 ## Failures found and corrected
 
 1. Corrected JAVA_HOME to the actual Java 21 installation path.
