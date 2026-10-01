@@ -88,10 +88,10 @@ and Python 3 for the lightweight scaffold checker. No Java build is needed yet.
 ```sh
 cp .env.example .env
 # Edit .env: replace the local PostgreSQL password placeholder.
-./scripts/check.sh
-./scripts/dev-db.sh up
-./scripts/dev-db.sh status
-./scripts/dev-db.sh logs
+bash scripts/check.sh
+bash scripts/dev-db.sh up
+bash scripts/dev-db.sh status
+bash scripts/dev-db.sh logs
 ```
 
 The start command rejects the unchanged password placeholder. Alternatively,
@@ -103,7 +103,7 @@ troubleshooting. Never reuse local credentials in production.
 
 ## Testing
 
-`./scripts/check.sh` verifies the scaffold and shell syntax and, when Docker is
+`bash scripts/check.sh` verifies the scaffold and shell syntax and, when Docker is
 available, validates Compose without printing its resolved secrets. It does not
 exercise business logic or database connectivity. Unit, integration, security,
 and concurrency tests will accompany their features; Milestone 13 expands them.

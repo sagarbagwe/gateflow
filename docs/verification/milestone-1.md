@@ -38,7 +38,15 @@ is claimed.
 
 ## Deferred runtime checks
 
-On a Docker-capable host: configure `.env`, run `./scripts/dev-db.sh up`, inspect
+On a Docker-capable host: configure `.env`, run `bash scripts/dev-db.sh up`, inspect
 health, and run the readiness/`SELECT 1` commands in `docs/development.md`.
 This is an outstanding verification item, not a passed test. The scaffold should
 not be promoted as production-ready based on static checks.
+
+## Repository portability correction
+
+GitHub file publication uses non-executable file modes for shell scripts. All
+documented development commands therefore explicitly invoke `bash`, avoiding
+permission errors after cloning. Shell syntax and scaffold checks were rerun
+with non-executable script file modes. This is a packaging correction, not a new
+feature milestone.

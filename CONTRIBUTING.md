@@ -10,7 +10,7 @@ wait for approval before the next major milestone.
 - Feature branches: `feat/<short-topic>`; fixes: `fix/<short-topic>`.
 - Small commits: `chore:`, `feat:`, `fix:`, `test:`, `perf:`, `ci:`, `docs:`.
 - No credentials, generated build outputs, or unverified production claims.
-- Run `./scripts/check.sh` for scaffold changes; feature-specific build/test
+- Run `bash scripts/check.sh` for scaffold changes; feature-specific build/test
   commands will be added as executable components arrive.
 - Branch protection and required CI checks are not configured yet.
 

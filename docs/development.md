@@ -11,9 +11,9 @@ introduced. No application build exists in Milestone 1.
 ```sh
 cp .env.example .env
 # Set POSTGRES_PASSWORD to a unique local value; keep .env private.
-./scripts/check.sh
-./scripts/dev-db.sh up
-./scripts/dev-db.sh status
+bash scripts/check.sh
+bash scripts/dev-db.sh up
+bash scripts/dev-db.sh status
 ```
 
 Compose reads `.env`; the start script rejects the placeholder. Passwords must
@@ -38,8 +38,8 @@ exist, a real database integration suite replaces this basic smoke check.
 ## Stop / inspect
 
 ```sh
-./scripts/dev-db.sh logs
-./scripts/dev-db.sh down
+bash scripts/dev-db.sh logs
+bash scripts/dev-db.sh down
 ```
 
 `down` preserves the named volume. PostgreSQL initialization variables apply only

@@ -17,5 +17,5 @@ CHECK
   down) docker compose down ;;
   status) docker compose ps ;;
   logs) docker compose logs --tail=100 postgres ;;
-  *) echo 'Usage: ./scripts/dev-db.sh {up|down|status|logs}' >&2; exit 2 ;;
+  *) echo 'Usage: bash scripts/dev-db.sh {up|down|status|logs}' >&2; exit 2 ;;
 esac
