@@ -1,7 +1,6 @@
 package com.gateflow.rbac;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gateflow.audit.AuditData;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -12,11 +11,11 @@ import java.util.*;
 @Component
 public class TenantAuditWriter {
     private final JdbcTemplate jdbc;
-    private final ObjectMapper mapper;
+    private final AuditData data;
 
-    public TenantAuditWriter(JdbcTemplate jdbc, ObjectMapper mapper) {
+    public TenantAuditWriter(JdbcTemplate jdbc, AuditData data) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.data = data;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -39,17 +38,8 @@ VALUES(?,'USER',?,?,?,?,?::jsonb,?::jsonb,?)
                 action,
                 type,
                 resource,
-                json(oldValue),
-                json(newValue),
+                data.encode(oldValue),
+                data.encode(newValue),
                 requestId);
-    }
-
-    private String json(Map<String, ?> value) {
-        if (value == null) return null;
-        try {
-            return mapper.writeValueAsString(value);
-        } catch (JsonProcessingException invalid) {
-            throw new IllegalStateException("Unable to serialize safe audit snapshot");
-        }
     }
 }

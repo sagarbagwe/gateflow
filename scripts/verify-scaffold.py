@@ -13,6 +13,9 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/api/audit.md", "docs/audit/evidence.md",
+    "docs/decisions/012-audit-evidence-and-privileged-browsing.md", "docs/verification/milestone-10.md",
+    "backend/src/main/resources/db/migration/V11__harden_audit_evidence.sql",
     "docs/notifications/delivery.md", "docs/api/notifications.md",
     "docs/decisions/011-notifications-and-smtp-outcomes.md", "docs/verification/milestone-9.md",
     "backend/src/main/resources/db/migration/V10__add_notifications.sql",

@@ -127,3 +127,10 @@ recipient and unique email notification_id enforce generation deduplication.
 restricts processing lease recovery. Worker claims may scan locked candidates.
 Append-only attempt PK supports delivery history. Retention/index-growth operations
 are still required before production.
+
+## Audit investigation indexes (V11)
+
+`ix_audit_actor_time` and `ix_audit_action_time` use organization, actor/action,
+then occurred_at DESC/id DESC. Existing tenant/resource/time indexes remain.
+They support exact filters plus recency, not every combined filter; measure plans
+on representative data before adding more. Metadata feed deliberately avoids JSON.

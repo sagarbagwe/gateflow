@@ -2,10 +2,11 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 9 — personal notifications and durable SMTP delivery.**
+> **Status: Milestone 10 — protected audit browsing and bounded evidence.**
 > Authentication/RBAC, workflows, search, policy cache and event delivery work.
 > In-app inbox/preferences and opt-in email use current access checks and durable jobs.
-> Frontend, full audit browsing, CI and production deployment remain later milestones.
+> Tenant-wide audit investigation requires AUDIT_VIEW; normal writes remain append-only.
+> Frontend, CI and production deployment remain later milestones.
 
 ## Problem
 
@@ -21,7 +22,7 @@ the outcome. It approves requests; it does not execute payments or provision acc
 
 ## Features
 
-**Implemented:** repository/architecture, twenty-four application tables, ten
+**Implemented:** repository/architecture, twenty-four application tables, eleven
 Flyway migrations, ER/index/transaction docs, Spring Boot authentication, BCrypt,
 hashed opaque sessions, CSRF/secure-cookie handling, shared auth rate limiting,
 validation/errors/request IDs, organization RBAC with safe delegation, protected
@@ -34,10 +35,11 @@ invalidation/outage fallback, bounded authenticated Redis infrastructure, transa
 request outbox, confirmed RabbitMQ publication, idempotent activity projection,
 manual acknowledgments, delayed retries, dead-letter recovery, recipient-scoped
 notification inbox/read states/preferences, independent event subscribers, durable
-SMTP jobs/attempt history, safe retry/unknown-outcome quarantine, and local build/run tooling.
+SMTP jobs/attempt history, safe retry/unknown-outcome quarantine, protected audit
+metadata/detail browsing, bounded evidence, and local build/run tooling.
 
 **Planned:** verified-address production provider setup,
-comprehensive audit browsing/retention, and broader workflow policies. Parallel approvals and SLA
+controlled audit retention tooling, and broader workflow policies. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
 ## Architecture
@@ -155,12 +157,11 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: **270 tests** (108 unit,
-151 real HTTP/PostgreSQL/Redis/RabbitMQ/Mailpit, six PostgreSQL migration/index tests,
-five real SMTP adapter checks), zero failures/errors/skips, and packages the executable
-JAR. The database suite passes **125 checks**. **87 packaged assertions** and **15
-additional fresh-container recovery tests** passed. See [Milestone 9 evidence](docs/verification/milestone-9.md).
-Earlier event verification remains in [Milestone 8 evidence](docs/verification/milestone-8.md).
+M10 full Maven verify passed **290 tests** and packaged the executable JAR; one
+additional populated V10→V11 upgrade test passed separately (**291 distinct tests**).
+The database suite passed **128 checks** and the packaged application passed **102 assertions**.
+See [Milestone 10 evidence](docs/verification/milestone-10.md).
+Earlier notification/event verification remains in [Milestone 9 evidence](docs/verification/milestone-9.md).
 Earlier Redis verification remains in [Milestone 7 evidence](docs/verification/milestone-7.md).
 Earlier [search](docs/verification/milestone-6.md),
 [core workflow](docs/verification/milestone-5.md),
@@ -265,3 +266,8 @@ Milestone 5 verification: [Core workflow evidence and limitations](docs/verifica
 Milestone 6 verification: [Search evidence and limitations](docs/verification/milestone-6.md).
 
 Milestone 7 verification: [Redis evidence and limitations](docs/verification/milestone-7.md).
+
+## Audit investigation
+
+See [API](docs/api/audit.md), [evidence/trust boundary](docs/audit/evidence.md)
+and [Milestone 10 verification](docs/verification/milestone-10.md).

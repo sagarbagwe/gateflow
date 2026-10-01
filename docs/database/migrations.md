@@ -119,3 +119,6 @@ application tables. No pre-M9 event/preference/inbox backfill. Apply schema, pro
 notification topology, then enable relays/consumers for new notification coverage.
 Transport can be disabled without altering authoritative approval state. Do not
 Flyway-clean, disable guards or mutate terminal delivery history to reconcile email.
+
+- V11: audit snapshot new-write byte bounds (NOT VALID for preserved legacy rows),
+  actor/action tenant-time indexes; no evidence rewrite or new tables.

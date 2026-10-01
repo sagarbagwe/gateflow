@@ -355,3 +355,11 @@ the same codebase with DB SKIP LOCKED leases; SMTP ambiguity is quarantined, not
 turned into a duplicate-send guarantee. No production provider, verified-email
 claim, full audit browser, metrics dashboard or full app containerization is implied.
 [Complete configuration and failure runbook](../notifications/delivery.md).
+
+## Milestone 10: audit investigation
+
+AuditController adapts bounded filters; AuditService authorizes current AUDIT_VIEW
+and executes tenant-scoped, metadata-only queries. AuditData validates new evidence
+and sanitizes legacy snapshots. TenantAuditWriter stays transaction-mandatory.
+V11 adds new-write snapshot bounds and tenant actor/action time indexes; no tables.
+See [audit evidence](../audit/evidence.md) and [audit API](../api/audit.md).

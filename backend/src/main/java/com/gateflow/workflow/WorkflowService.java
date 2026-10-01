@@ -78,6 +78,7 @@ public class WorkflowService {
         repository.definition(org, id, true);
         validate(org, b.steps());
         UUID version = repository.createVersion(org, id, b.steps());
+        var after = repository.version(org, id, version, false);
         audit.record(
                 org,
                 actor.membershipId(),
@@ -85,9 +86,15 @@ public class WorkflowService {
                 "WORKFLOW_VERSION",
                 version,
                 null,
-                Map.of("definitionId", id, "stepCount", b.steps().size()),
+                Map.of(
+                        "definitionId",
+                        id,
+                        "stepCount",
+                        b.steps().size(),
+                        "steps",
+                        snapshots(after.steps())),
                 requestId);
-        return repository.version(org, id, version, false);
+        return after;
     }
 
     @Transactional
@@ -99,16 +106,29 @@ public class WorkflowService {
         WorkflowPolicy.requireDraft(before, b.expectedVersion());
         validate(org, b.steps());
         repository.replace(org, version, b.expectedVersion(), b.steps());
+        var after = repository.version(org, id, version, false);
         audit.record(
                 org,
                 actor.membershipId(),
                 "WORKFLOW_VERSION_UPDATED",
                 "WORKFLOW_VERSION",
                 version,
-                Map.of("version", before.version(), "stepCount", before.steps().size()),
-                Map.of("version", before.version() + 1, "stepCount", b.steps().size()),
+                Map.of(
+                        "version",
+                        before.version(),
+                        "stepCount",
+                        before.steps().size(),
+                        "steps",
+                        snapshots(before.steps())),
+                Map.of(
+                        "version",
+                        before.version() + 1,
+                        "stepCount",
+                        b.steps().size(),
+                        "steps",
+                        snapshots(after.steps())),
                 requestId);
-        return repository.version(org, id, version, false);
+        return after;
     }
 
     @Transactional
@@ -145,5 +165,24 @@ public class WorkflowService {
         for (var role : roles.scoped(org, ids))
             if (!role.permissions().contains(REQUEST_APPROVE))
                 throw WorkflowPolicy.invalid("Approver roles must grant REQUEST_APPROVE");
+    }
+
+    private static List<Map<String, Object>> snapshots(List<WorkflowStep> steps) {
+        return steps.stream()
+                .map(
+                        s -> {
+                            Map<String, Object> item = new LinkedHashMap<>();
+                            item.put("id", s.id());
+                            item.put("position", s.position());
+                            item.put("name", s.name());
+                            item.put("approverRoleId", s.approverRoleId());
+                            Map<String, Object> c = new LinkedHashMap<>();
+                            c.put("type", s.condition().type());
+                            c.put("amount", s.condition().amount());
+                            c.put("currency", s.condition().currency());
+                            item.put("condition", c);
+                            return item;
+                        })
+                .toList();
     }
 }

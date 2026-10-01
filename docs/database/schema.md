@@ -189,3 +189,11 @@ identity/outcome/reason/time. No recipient address/body/SMTP secret is persisted
 Projector inserts trusted source fields; FKs do not independently prove every
 copied source value or delivery policy. Runtime insert privileges remain restricted
 production work. No preference/inbox backfill or notification purge job is added.
+
+## Milestone 10: audit investigation
+
+AuditController adapts bounded filters; AuditService authorizes current AUDIT_VIEW
+and executes tenant-scoped, metadata-only queries. AuditData validates new evidence
+and sanitizes legacy snapshots. TenantAuditWriter stays transaction-mandatory.
+V11 adds new-write snapshot bounds and tenant actor/action time indexes; no tables.
+See [audit evidence](../audit/evidence.md) and [audit API](../api/audit.md).

@@ -289,6 +289,9 @@ BEGIN
     PERFORM pg_temp.expect_failure('delivery delete blocked','DELETE FROM notification_email_deliveries','55000');
     PERFORM pg_temp.expect_failure('delivery truncate blocked','TRUNCATE notification_email_deliveries CASCADE','55000');
     PERFORM pg_temp.assert_true('four notification tables created',(SELECT count(*)=4 FROM information_schema.tables WHERE table_schema='public' AND table_name IN('notification_preferences','notifications','notification_email_deliveries','notification_email_attempts')));
+    PERFORM pg_temp.expect_failure('new audit snapshot bounded',format('INSERT INTO audit_logs(organization_id,actor_kind,action,resource_type,resource_id,new_value,correlation_id) VALUES(%L,''SYSTEM'',''TEST'',''REQUEST'',%L,jsonb_build_object(''name'',repeat(''x'',70000)),''size-test'')',org_a,request_a),'23514');
+    PERFORM pg_temp.expect_failure('old audit snapshot bounded',format('INSERT INTO audit_logs(organization_id,actor_kind,action,resource_type,resource_id,old_value,correlation_id) VALUES(%L,''SYSTEM'',''TEST'',''REQUEST'',%L,jsonb_build_object(''name'',repeat(''x'',70000)),''size-test'')',org_a,request_a),'23514');
+    PERFORM pg_temp.assert_true('audit actor and action indexes exist',(SELECT count(*)=2 FROM pg_indexes WHERE schemaname='public' AND indexname IN('ix_audit_actor_time','ix_audit_action_time')));
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;
