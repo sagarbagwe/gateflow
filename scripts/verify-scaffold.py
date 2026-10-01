@@ -13,6 +13,9 @@ def check(condition, message):
     print(f"PASS: {message}")
 
 required = [
+    "docs/notifications/delivery.md", "docs/api/notifications.md",
+    "docs/decisions/011-notifications-and-smtp-outcomes.md", "docs/verification/milestone-9.md",
+    "backend/src/main/resources/db/migration/V10__add_notifications.sql",
     "docs/async/event-delivery.md", "docs/api/activity.md",
     "docs/decisions/010-transactional-request-events.md", "docs/verification/milestone-8.md",
     "backend/src/main/resources/db/migration/V9__add_transactional_outbox.sql",
@@ -63,6 +66,8 @@ check('maxmemory 128mb' in compose and 'maxmemory-policy allkeys-lru' in compose
 check('127.0.0.1:${RABBITMQ_PORT:-5672}:5672' in compose, "RabbitMQ host binding is loopback-only")
 check(env["RABBITMQ_PASSWORD"] == "replace-with-a-unique-rabbitmq-password", "RabbitMQ example password is a placeholder")
 check('rabbitmq_data:/var/lib/rabbitmq' in compose and 'rabbitmq-diagnostics' in compose, "RabbitMQ durable storage and health check configured")
+check('127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025' in compose and '127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025' in compose, "mail capture host bindings are loopback-only")
+check('user: "1000:1000"' in compose and '--disable-version-check' in compose, "mail capture is unprivileged and avoids update callbacks")
 check('postgres_data:/var/lib/postgresql/data' in compose,
       "PostgreSQL 17 data directory has a named volume")
 check('pg_isready' in compose and '$$POSTGRES_USER' in compose

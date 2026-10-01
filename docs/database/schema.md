@@ -1,7 +1,7 @@
 # Database design
 
 Current schema: fourteen core tables, two authentication tables and one command
-receipt ledger plus three asynchronous tables (20 application tables, excluding Flyway history). Authentication,
+receipt ledger plus three asynchronous and four notification tables (24 application tables, excluding Flyway history). Authentication,
 RBAC and sequential workflow APIs exist. V1–V5 are unchanged; V6 adds core-command
 metadata, guards and one product permission.
 
@@ -113,7 +113,7 @@ persistence; there is no API accepting a client-provided password hash.
 
 JWT/refresh-token storage is deliberately not used: M3 implements opaque sessions.
 Submission command receipts (M5) and outbox/consumer deduplication (M8) are implemented.
-Still deferred: notifications/preferences/delivery attempts (M9), workflow dependency graphs
+M9 now adds notifications/preferences/email deliveries/attempts. Still deferred: workflow dependency graphs
 and quorum reviewers (when advanced flows are approved). No generic projects/tasks
 are included because GateFlow is a request/approval product, not a task tracker.
 
@@ -172,3 +172,20 @@ history still live in their original tables. See [search API](../api/search.md).
 
 Nine migrations total; V1–V8 remain untouched. There is no historical event backfill.
 [Delivery contract](../async/event-delivery.md) records retention and recovery limits.
+
+## M9 notification storage (V10)
+
+notification_preferences: tenant/membership composite PK/FK, default in-app true /
+email false, nonnegative optimistic version and update timestamp. notifications:
+UUID PK, source event/request/recipient/optional step tenant FKs, unique source
+recipient, immutable kind/channel/provenance and first-only read_at. Email-only
+rows retain provenance but do not appear in the in-app inbox.
+
+notification_email_deliveries: unique notification job with recipient-matching
+composite FK, finite states, attempt counter, due time, paired processing lease,
+terminal timestamp, immutable provenance and frozen terminal state.
+notification_email_attempts: delivery/attempt PK plus tenant FK, immutable lease
+identity/outcome/reason/time. No recipient address/body/SMTP secret is persisted.
+Projector inserts trusted source fields; FKs do not independently prove every
+copied source value or delivery policy. Runtime insert privileges remain restricted
+production work. No preference/inbox backfill or notification purge job is added.

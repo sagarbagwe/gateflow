@@ -106,3 +106,18 @@ manual ACK follows its return. Unknown source references are permanent failures;
 DB/runtime processing errors use bounded broker retries. Activity reads use fresh
 membership/resource authorization and REPEATABLE_READ. No two-system atomicity or
 FIFO processing is assumed. See [delivery contract](../async/event-delivery.md).
+
+## M9 notification boundaries
+
+Reference consumer receipt, recipient rows and email jobs commit together before
+Rabbit ACK. A shared org lock coordinates generation with RBAC writers. Preference
+version updates and safe audit snapshots share one transaction; audit failure
+rolls back even first-row creation. Inbox list/count use authoritative visibility
+in one SQL statement under REPEATABLE_READ; mark-read locks only its recipient row
+and uses idempotent first-only timestamp update.
+
+Email claim/reaper and finish/attempt use short REQUIRES_NEW transactions. Preflight
+reads current preferences/access/action/age/address before SMTP outside transactions.
+Provider acceptance and final DB commit are not atomic: lost final commits/expired
+external leases become UNKNOWN, never an automatic resend. No DB lock is held over
+SMTP and no exactly-once external effect is claimed.

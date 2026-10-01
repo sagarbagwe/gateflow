@@ -35,6 +35,19 @@ spring:
       mandatory: true
     ssl:
       enabled: ${RABBITMQ_SSL:false}
+  mail:
+    host: ${SMTP_HOST:127.0.0.1}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.starttls.required: ${SMTP_STARTTLS_REQUIRED:true}
+      mail.smtp.connectiontimeout: 1000
+      mail.smtp.timeout: 2000
+      mail.smtp.writetimeout: 2000
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
@@ -58,6 +71,19 @@ spring:
       fail-on-unknown-properties: true
       fail-on-numbers-for-enums: true
 gateflow:
+  notifications:
+    enabled: ${NOTIFICATIONS_ENABLED:false}
+    consumer-enabled: ${NOTIFICATION_CONSUMER_ENABLED:true}
+    email-enabled: ${EMAIL_ENABLED:false}
+    email-worker-enabled: ${EMAIL_WORKER_ENABLED:true}
+    max-attempts: 5
+    batch-size: 5
+    poll-interval-ms: 1000
+    lease-duration: PT1M
+    retry-base: PT10S
+    retry-max: PT5M
+    max-age: PT48H
+    from: ${EMAIL_FROM:no-reply@gateflow.invalid}
   async:
     enabled: ${ASYNC_ENABLED:false}
     relay-enabled: ${ASYNC_RELAY_ENABLED:true}

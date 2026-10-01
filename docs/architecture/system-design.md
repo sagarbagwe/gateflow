@@ -1,10 +1,10 @@
 # System design
 
-Status: Milestones 1–8 implemented: authentication, organization RBAC, sequential
-workflows, search, bounded policy cache and durable asynchronous activity. Nine
-Flyway migrations / 20 application tables. Frontend, notifications, full metrics,
+Status: Milestones 1–9 implemented: authentication, organization RBAC, sequential
+workflows, search, bounded policy cache and durable asynchronous activity. Ten
+Flyway migrations / 24 application tables. Notifications and SMTP adapter are implemented; frontend/full metrics,
 CI and production deployment remain later milestones. Older future-flow sketches
-below describe eventual notification processing, not an implemented email provider.
+below describe eventual notification processing, not an external production email service.
 
 Implemented storage model: [schema](../database/schema.md),
 [ER diagram](../database/er-diagram.md), [indexes](../database/indexes.md), and
@@ -18,7 +18,7 @@ Implemented storage model: [schema](../database/schema.md),
 4. Eligible reviewers approve/reject active steps; invalid transitions fail.
 5. Requesters see status and may withdraw where the lifecycle allows it.
 6. Users search only requests they are authorized to see.
-7. Decisions generate atomic audit evidence and asynchronous activity; notifications follow in M9.
+7. Decisions generate atomic audit evidence and asynchronous activity; notifications are implemented in M9.
 8. Later: parallel review, deadlines, reminders, and escalation.
 
 ## Non-functional requirements
@@ -55,8 +55,8 @@ independent worker deployment can use the same codebase.
 - **Redis:** bounded cache of published definitions only; rate limits remain PostgreSQL.
 - **Outbox relay:** publishes committed request references using fenced leases/confirms.
 - **RabbitMQ:** durable activity quorum queues, retries and dead-letter routing.
-- **Activity worker:** deduplicated PostgreSQL timeline; notification worker remains M9.
-- **Email adapter (later):** provider-specific integration behind an interface.
+- **Activity worker:** deduplicated PostgreSQL timeline; notification worker is an independent subscriber in M9.
+- **Email adapter:** SMTP behind EmailSender; local capture verified, production provider/domain setup deferred.
 - **Observability (incremental):** request IDs/basic logs first; metrics and traces later.
 
 No external identity provider, payment gateway, or provisioning API is required
@@ -334,3 +334,24 @@ One-node local quorum is not HA; production service selection is deferred to M18
 No production throughput claim is derived from correctness/repeat tests.
 
 [Full configuration, backpressure, failure recovery, security and retention limits](../async/event-delivery.md).
+
+## Implemented M9 notification flow
+
+```mermaid
+flowchart LR
+    MQ[Rabbit domain event] --> Consumer[Notification reference consumer]
+    Consumer --> TX[PostgreSQL receipt + eligible notifications + email jobs]
+    TX --> Inbox[Authorized in-app inbox]
+    TX --> Worker[Short leased email worker]
+    Worker --> Policy[Current preferences / access / action / age]
+    Policy --> SMTP[SMTP adapter outside DB transaction]
+    SMTP --> Finish[Fenced delivery outcome + immutable attempt]
+    Finish --> Retry[Bounded known-safe retry]
+    Finish --> Unknown[UNKNOWN or DEAD review queue]
+```
+
+Activity/notification subscribers retry independently. Email workers can scale from
+the same codebase with DB SKIP LOCKED leases; SMTP ambiguity is quarantined, not
+turned into a duplicate-send guarantee. No production provider, verified-email
+claim, full audit browser, metrics dashboard or full app containerization is implied.
+[Complete configuration and failure runbook](../notifications/delivery.md).

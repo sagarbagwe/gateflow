@@ -234,3 +234,22 @@ universal event bus, distributed lock service or premature email abstraction.
 
 [Delivery contract](../async/event-delivery.md) explains why/how/alternatives/failure/
 scale and genuine bounded scheduling/index algorithm complexity.
+
+## M9 notification and provider boundaries
+
+NotificationProjector coordinates one receipt/recipient/job transaction. NotificationPolicy
+shares current request visibility with the APIs; NotificationService builds joined
+recipient-owned lists/counts and handles read/preferences transaction boundaries.
+PreferenceRepository owns optimistic updates. NotificationConsumer and ActivityConsumer
+both delegate to ReferenceDeliveryHandler, preventing ACK/retry logic drift.
+
+EmailSender is a genuine provider strategy interface. SmtpEmailSender owns message
+encoding, address validation and conservative transport classification. EmailDeliveryPolicy
+owns fresh preflight eligibility; EmailDeliveryRepository owns fenced claims/terminal
+outcomes; EmailDeliveryWorker coordinates sends outside DB transactions. Constructor
+DI supports provider replacement and focused tests; one SMTP strategy does not need
+a speculative provider factory. Records carry immutable claim/message/results.
+Future providers must register one selected EmailSender and uphold explicit safe
+failure codes and acceptance semantics—not claim Message-ID supplies idempotency.
+
+[Why/how/alternative/trade-off/failure/scale contract](../notifications/delivery.md).

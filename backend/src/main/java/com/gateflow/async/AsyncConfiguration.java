@@ -21,7 +21,8 @@ public class AsyncConfiguration {
             QUEUE = "gateflow.activity.v1",
             LISTENER = "gateflow-activity-v1";
 
-    static org.springframework.amqp.core.Queue queue(String name, Map<String, Object> extra) {
+    public static org.springframework.amqp.core.Queue queue(
+            String name, Map<String, Object> extra) {
         var a = new HashMap<String, Object>();
         a.put("x-queue-type", "quorum");
         a.put("x-overflow", "reject-publish");

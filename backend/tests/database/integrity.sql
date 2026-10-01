@@ -36,6 +36,7 @@ DECLARE
     step_a uuid := gen_random_uuid(); step_a2 uuid := gen_random_uuid(); step_b uuid := gen_random_uuid();
     request_a uuid := gen_random_uuid(); instance_a uuid := gen_random_uuid();
     decision_a uuid := gen_random_uuid(); audit_a uuid := gen_random_uuid();
+    notification_a uuid := gen_random_uuid(); delivery_a uuid := gen_random_uuid(); lease_a uuid := gen_random_uuid();
     event_a uuid := gen_random_uuid();
     affected integer;
 BEGIN
@@ -258,6 +259,36 @@ BEGIN
     PERFORM pg_temp.expect_failure('activity truncate blocked','TRUNCATE request_activity','55000');
     PERFORM pg_temp.assert_true('activity copied from authoritative event',
         (SELECT request_id=request_a AND request_version=0 AND event_type='REQUEST_SUBMITTED' FROM request_activity WHERE event_id=event_a));
+    INSERT INTO notification_preferences(organization_id,membership_id) VALUES(org_a,member_a);
+    PERFORM pg_temp.assert_true('notification preferences default to in-app only',(SELECT in_app_enabled AND NOT email_enabled AND row_version=0 FROM notification_preferences WHERE organization_id=org_a AND membership_id=member_a));
+    PERFORM pg_temp.expect_failure('preference tenant scoped',format('INSERT INTO notification_preferences(organization_id,membership_id) VALUES(%L,%L)',org_b,member_a),'23503');
+    PERFORM pg_temp.expect_failure('preference version nonnegative',format('UPDATE notification_preferences SET row_version=-1 WHERE membership_id=%L',member_a),'23514');
+    INSERT INTO notifications(id,organization_id,event_id,request_id,recipient_membership_id,kind,in_app) VALUES(notification_a,org_a,event_a,request_a,member_a,'STATUS_UPDATE',true);
+    PERFORM pg_temp.expect_failure('notification event recipient unique',format('INSERT INTO notifications(organization_id,event_id,request_id,recipient_membership_id,kind,in_app) VALUES(%L,%L,%L,%L,''STATUS_UPDATE'',true)',org_a,event_a,request_a,member_a),'23505');
+    PERFORM pg_temp.expect_failure('notification recipient tenant scoped',format('INSERT INTO notifications(organization_id,event_id,request_id,recipient_membership_id,kind,in_app) VALUES(%L,%L,%L,%L,''STATUS_UPDATE'',true)',org_a,event_a,request_a,member_b),'23503');
+    PERFORM pg_temp.expect_failure('action notification needs step',format('INSERT INTO notifications(organization_id,event_id,request_id,recipient_membership_id,kind,in_app) VALUES(%L,%L,%L,%L,''ACTION_REQUIRED'',true)',org_a,event_a,request_a,member_c),'23514');
+    PERFORM pg_temp.expect_failure('notification provenance immutable',format('UPDATE notifications SET in_app=false WHERE id=%L',notification_a),'55000');
+    UPDATE notifications SET read_at=clock_timestamp() WHERE id=notification_a;
+    PERFORM pg_temp.expect_failure('read acknowledgment cannot reset',format('UPDATE notifications SET read_at=NULL WHERE id=%L',notification_a),'55000');
+    PERFORM pg_temp.expect_failure('notification history delete blocked','DELETE FROM notifications','55000');
+    PERFORM pg_temp.expect_failure('notification history truncate blocked','TRUNCATE notifications CASCADE','55000');
+    PERFORM pg_temp.expect_failure('email delivery recipient matches notification',format('INSERT INTO notification_email_deliveries(organization_id,notification_id,recipient_membership_id) VALUES(%L,%L,%L)',org_b,notification_a,member_b),'23503');
+    INSERT INTO notification_email_deliveries(id,organization_id,notification_id,recipient_membership_id) VALUES(delivery_a,org_a,notification_a,member_a);
+    PERFORM pg_temp.expect_failure('email delivery notification unique',format('INSERT INTO notification_email_deliveries(organization_id,notification_id,recipient_membership_id) VALUES(%L,%L,%L)',org_a,notification_a,member_a),'23505');
+    PERFORM pg_temp.expect_failure('unclaimed delivery cannot be accepted',format('UPDATE notification_email_deliveries SET status=''ACCEPTED'',completed_at=clock_timestamp() WHERE id=%L',delivery_a),'23514');
+    UPDATE notification_email_deliveries SET status='PROCESSING',attempts=1,lease_token=lease_a,lease_until=clock_timestamp()+interval '60 seconds' WHERE id=delivery_a;
+    PERFORM pg_temp.expect_failure('email attempts monotonic',format('UPDATE notification_email_deliveries SET attempts=0 WHERE id=%L',delivery_a),'55000');
+    PERFORM pg_temp.expect_failure('email lease fields paired',format('UPDATE notification_email_deliveries SET status=''RETRY'',lease_until=NULL WHERE id=%L',delivery_a),'23514');
+    UPDATE notification_email_deliveries SET status='ACCEPTED',lease_token=NULL,lease_until=NULL,completed_at=clock_timestamp() WHERE id=delivery_a;
+    PERFORM pg_temp.expect_failure('terminal email delivery frozen',format('UPDATE notification_email_deliveries SET status=''RETRY'',completed_at=NULL WHERE id=%L',delivery_a),'55000');
+    INSERT INTO notification_email_attempts(organization_id,delivery_id,attempt_number,lease_token,outcome) VALUES(org_a,delivery_a,1,lease_a,'ACCEPTED');
+    PERFORM pg_temp.expect_failure('attempt outcome unique',format('INSERT INTO notification_email_attempts(organization_id,delivery_id,attempt_number,lease_token,outcome) VALUES(%L,%L,1,%L,''ACCEPTED'')',org_a,delivery_a,lease_a),'23505');
+    PERFORM pg_temp.expect_failure('email attempt update blocked','UPDATE notification_email_attempts SET outcome=''UNKNOWN''','55000');
+    PERFORM pg_temp.expect_failure('email attempt delete blocked','DELETE FROM notification_email_attempts','55000');
+    PERFORM pg_temp.expect_failure('email attempt truncate blocked','TRUNCATE notification_email_attempts','55000');
+    PERFORM pg_temp.expect_failure('delivery delete blocked','DELETE FROM notification_email_deliveries','55000');
+    PERFORM pg_temp.expect_failure('delivery truncate blocked','TRUNCATE notification_email_deliveries CASCADE','55000');
+    PERFORM pg_temp.assert_true('four notification tables created',(SELECT count(*)=4 FROM information_schema.tables WHERE table_schema='public' AND table_name IN('notification_preferences','notifications','notification_email_deliveries','notification_email_attempts')));
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;

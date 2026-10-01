@@ -109,3 +109,13 @@ writers cannot emit M8 events, so pause writers or coordinate deployment if comp
 cutover history is required. Disable transport independently without disabling event
 recording; pending rows persist until relays return. Retention needs a separate,
 reviewed maintenance migration/job—not routine deletes or Flyway clean.
+
+## V10 notification upgrade
+
+Four tables plus finite delivery-state, tenant/recipient FK, uniqueness, immutable
+history and first-read guards. V1–V9 remain unchanged. A populated V9→V10 upgrade
+preserves old rows/checksums, validates and repeats without extra migration; 24
+application tables. No pre-M9 event/preference/inbox backfill. Apply schema, provision
+notification topology, then enable relays/consumers for new notification coverage.
+Transport can be disabled without altering authoritative approval state. Do not
+Flyway-clean, disable guards or mutate terminal delivery history to reconcile email.

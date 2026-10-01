@@ -77,7 +77,7 @@ PostgreSQL volume. Back up anything needed first; never use this on production.
 - `.env`: local values, ignored by Git.
 - Production: managed secrets and restricted networking; not this Compose file.
 - Authentication APIs exist as a separately launched Spring Boot process. No
-  UI or notification delivery exists yet. Redis policy cache, RabbitMQ activity
+  UI exists yet. Notification generation and local-only SMTP delivery are implemented. Redis policy cache, RabbitMQ activity
   worker and workflow APIs are implemented. Flyway is a one-shot tools profile;
   PostgreSQL/Flyway images are digest-pinned.
 
@@ -150,3 +150,14 @@ variables does not rotate stored credentials. `down --volumes` also destroys bro
 history, not only PostgreSQL. `dev-db.sh up/logs` intentionally target PostgreSQL;
 use `docker compose up -d --wait` for all dependencies. Queue types/TTL arguments
 require a versioned migration plan if changed. One local node is not HA.
+
+## M9 local mail capture
+
+`docker compose up -d --wait` also starts Mailpit; configure MAILPIT_SMTP_PORT /
+MAILPIT_HTTP_PORT in private .env if defaults 1025/8025 are occupied. Both host
+bindings are loopback-only. The dev launcher selects that sink and enables notification
+workers; user email still defaults off until preference opt-in. Capture storage is
+bounded, ephemeral and unprivileged; never configure forwarding/relay to a real
+provider for this local test environment. The backend still runs separately; full
+app/UI containerization remains M16. Outside dev, email is disabled and required
+SMTP STARTTLS defaults on. Verified addresses are required before external production mail.

@@ -37,6 +37,12 @@ env.update(RABBITMQ_HOST="127.0.0.1", RABBITMQ_PORT=str(broker["ports"][0]["publ
            RABBITMQ_PASSWORD=broker["environment"]["RABBITMQ_DEFAULT_PASS"],
            RABBITMQ_VHOST=broker["environment"]["RABBITMQ_DEFAULT_VHOST"],
            ASYNC_ENABLED=env.get("ASYNC_ENABLED", "true"))
+sink = services["mailpit"]
+env.update(SMTP_HOST="127.0.0.1", SMTP_PORT=str(next(p["published"] for p in sink["ports"] if p["target"] == 1025)),
+           SMTP_AUTH="false", SMTP_STARTTLS="false", SMTP_STARTTLS_REQUIRED="false",
+           NOTIFICATIONS_ENABLED=env.get("NOTIFICATIONS_ENABLED", "true"),
+           EMAIL_ENABLED=env.get("EMAIL_ENABLED", "true"))
+# Email remains user opt-in; this dev endpoint is a capture sink, never a real provider.
 # This is explicitly a loopback development launcher, not a production entrypoint.
 if args.jar:
     jar = root / "backend/target/gateflow-backend-0.1.0-SNAPSHOT.jar"

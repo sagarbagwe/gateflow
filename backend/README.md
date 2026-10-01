@@ -69,3 +69,10 @@ USERNAME/PASSWORD/VHOST; TLS via RABBITMQ_TLS_ENABLED. Defaults are opt-in; pend
 events still accumulate when disabled. ASYNC_RELAY_ENABLED / ASYNC_CONSUMER_ENABLED
 control background roles independently. See [delivery configuration/runbook](../docs/async/event-delivery.md),
 [Activity API](../docs/api/activity.md) and [M8 evidence](../docs/verification/milestone-8.md).
+
+M9 adds personal notification preferences/inbox, independent Rabbit projection and
+leased email worker. EmailSender has an actual SMTP adapter; dev launcher uses
+local-only Mailpit, never external forwarding. Defaults outside dev disable notification
+and email transport; see [API](../docs/api/notifications.md),
+[provider/worker contract](../docs/notifications/delivery.md), and
+[M9 evidence](../docs/verification/milestone-9.md). No external mailbox was contacted.

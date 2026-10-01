@@ -1,21 +1,23 @@
-package com.gateflow.async;
+package com.gateflow.notifications;
 
+import com.gateflow.async.*;
 import com.rabbitmq.client.Channel;
 
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
 @Component
-@ConditionalOnProperty(prefix = "gateflow.async", name = "enabled", havingValue = "true")
-public class ActivityConsumer {
+@ConditionalOnExpression(
+        "${gateflow.async.enabled:false} && ${gateflow.notifications.enabled:false}")
+public class NotificationConsumer {
     private final ReferenceDeliveryHandler handler;
 
-    public ActivityConsumer(
-            ActivityProjector projector,
+    public NotificationConsumer(
+            NotificationProjector projector,
             ConfirmedEventPublisher publisher,
             EventReferenceCodec codec) {
         handler =
@@ -23,15 +25,15 @@ public class ActivityConsumer {
                         projector::process,
                         publisher,
                         codec,
-                        AsyncConfiguration.RETRY,
-                        AsyncConfiguration.DEAD);
+                        NotificationAsyncConfiguration.RETRY,
+                        NotificationAsyncConfiguration.DEAD);
     }
 
     @RabbitListener(
-            id = AsyncConfiguration.LISTENER,
-            queues = AsyncConfiguration.QUEUE,
+            id = NotificationAsyncConfiguration.LISTENER,
+            queues = NotificationAsyncConfiguration.QUEUE,
             containerFactory = "activityListenerFactory",
-            autoStartup = "${gateflow.async.consumer-enabled:true}")
+            autoStartup = "${gateflow.notifications.consumer-enabled:true}")
     public void receive(Message message, Channel channel) throws IOException {
         handler.receive(message, channel);
     }

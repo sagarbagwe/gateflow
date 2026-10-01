@@ -2,10 +2,10 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 8 — durable asynchronous request activity.**
-> Authentication/RBAC, sequential workflows, search and bounded policy caching work.
-> Transactional outbox + RabbitMQ project activity with retry/DLQ and deduplication.
-> Frontend, notifications, CI and production deployment remain later milestones.
+> **Status: Milestone 9 — personal notifications and durable SMTP delivery.**
+> Authentication/RBAC, workflows, search, policy cache and event delivery work.
+> In-app inbox/preferences and opt-in email use current access checks and durable jobs.
+> Frontend, full audit browsing, CI and production deployment remain later milestones.
 
 ## Problem
 
@@ -21,7 +21,7 @@ the outcome. It approves requests; it does not execute payments or provision acc
 
 ## Features
 
-**Implemented:** repository/architecture, twenty application tables, nine
+**Implemented:** repository/architecture, twenty-four application tables, ten
 Flyway migrations, ER/index/transaction docs, Spring Boot authentication, BCrypt,
 hashed opaque sessions, CSRF/secure-cookie handling, shared auth rate limiting,
 validation/errors/request IDs, organization RBAC with safe delegation, protected
@@ -32,9 +32,11 @@ active reviewer inbox, status/type/workflow/date filters, bounded cursor/offset
 navigation, additive upgrade checks, published-policy Redis cache-aside with expiry/
 invalidation/outage fallback, bounded authenticated Redis infrastructure, transactional
 request outbox, confirmed RabbitMQ publication, idempotent activity projection,
-manual acknowledgments, delayed retries, dead-letter recovery, and local build/run tooling.
+manual acknowledgments, delayed retries, dead-letter recovery, recipient-scoped
+notification inbox/read states/preferences, independent event subscribers, durable
+SMTP jobs/attempt history, safe retry/unknown-outcome quarantine, and local build/run tooling.
 
-**Planned:** notification preferences and provider delivery,
+**Planned:** verified-address production provider setup,
 comprehensive audit browsing/retention, and broader workflow policies. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
@@ -53,7 +55,10 @@ flowchart LR
     DB -- transactional outbox relay --> Queue[RabbitMQ]
     Queue --> Worker[Activity worker]
     Worker -- receipt + timeline transaction --> DB
-    Queue -. future separate subscriber .-> Mail[Notifications / email - M9]
+    Queue --> Notify[Independent notification subscriber]
+    Notify --> Jobs[PostgreSQL inbox + email jobs]
+    Jobs --> Email[Leased email worker]
+    Email --> Mail[SMTP adapter / local Mailpit sink]
 ```
 
 See [system design](docs/architecture/system-design.md).
@@ -67,7 +72,8 @@ See [system design](docs/architecture/system-design.md).
 | JPA/Hibernate, JDBC, PostgreSQL 17 | Relational identity/policy, transactional commands and durable receipts | Implemented core/auth schema |
 | Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
 | Redis 7.4.11, Spring Data Redis/Lettuce | Published-policy read cache only; auth rate limits remain PostgreSQL | Milestone 7 implemented |
-| RabbitMQ 4.2.9, Spring AMQP | Confirmed durable activity delivery, retries and DLQ | Milestone 8 implemented |
+| RabbitMQ 4.2.9, Spring AMQP | Independent activity/notification subscribers, confirms/retries/DLQs | Implemented |
+| Spring Mail/Jakarta Mail, local Mailpit 1.31.3 | SMTP provider adapter and safe local capture | M9 implemented; no external mailbox contacted |
 | React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
 | JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
 | Docker Compose, GitHub Actions | Local dependencies and CI | Dependency Compose now; CI later |
@@ -99,6 +105,8 @@ withdraw/reassign) are implemented in [Core workflow API](docs/api/workflows.md)
 [Search API](docs/api/search.md) documents request summaries, reviewer inbox,
 filter semantics and cursor consistency/security limits.
 [Activity API](docs/api/activity.md) documents the eventually consistent request timeline.
+[Notification API](docs/api/notifications.md) documents private inbox/count/read/preferences;
+[email delivery contract](docs/notifications/delivery.md) explains retries and SMTP uncertainty.
 Full OpenAPI review is Milestone 12.
 
 ## Local Development
@@ -121,7 +129,7 @@ python3 scripts/run-backend.py --jar
 
 The development launcher rejects unchanged password placeholders. Compose requires
 configured values but does not enforce password strength; use distinct private secrets.
-At this milestone Compose starts **PostgreSQL, cache-only Redis and RabbitMQ**; the
+At this milestone Compose starts **PostgreSQL, cache-only Redis, RabbitMQ and local-only Mailpit**; the
 Spring Boot backend is run separately by the development launcher. Full app
 containerization remains Milestone 16.
 
@@ -147,11 +155,12 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: **227 tests** (97 unit,
-125 real HTTP/PostgreSQL/Redis/RabbitMQ, five PostgreSQL migration/index tests), zero
-failures/errors/skips, and packages the executable JAR. The database suite passes
-**102 checks**. Actual packaged application and failure-sensitive fresh-container
-repeats are recorded in [Milestone 8 evidence](docs/verification/milestone-8.md).
+`bash scripts/test-backend.sh` runs Maven verify: **270 tests** (108 unit,
+151 real HTTP/PostgreSQL/Redis/RabbitMQ/Mailpit, six PostgreSQL migration/index tests,
+five real SMTP adapter checks), zero failures/errors/skips, and packages the executable
+JAR. The database suite passes **125 checks**. **87 packaged assertions** and **15
+additional fresh-container recovery tests** passed. See [Milestone 9 evidence](docs/verification/milestone-9.md).
+Earlier event verification remains in [Milestone 8 evidence](docs/verification/milestone-8.md).
 Earlier Redis verification remains in [Milestone 7 evidence](docs/verification/milestone-7.md).
 Earlier [search](docs/verification/milestone-6.md),
 [core workflow](docs/verification/milestone-5.md),
@@ -165,7 +174,9 @@ Local PostgreSQL and RabbitMQ use persistent storage; Redis is a reconstructible
 authenticated loopback-only host ports. Redis runs unprivileged/read-only with
 dropped capabilities and private tmpfs config. PostgreSQL, Redis, RabbitMQ and Flyway use
 tested image digests;
-updates require explicit review and migration tests. Flyway is a one-shot tools
+updates require explicit review and migration tests. Mailpit is a digest-pinned,
+unprivileged/read-only, bounded ephemeral mail capture sink with no relay configured.
+Flyway is a one-shot tools
 profile, not a long-running application. A one-node broker is not highly available.
 Application Dockerfiles and a full local
 stack are intentionally deferred. Production image scanning is still future work.
@@ -195,7 +206,11 @@ errors. DTOs/errors/logs avoid
 credential disclosure. Redis failure never bypasses authorization; display caches
 do not drive approval execution. Live tenant/resource RBAC, delegation ceilings, last-admin
 protection, and security audit writes are implemented. Request-specific ownership/assignment
-rules and bounded bodies are implemented. Email verification/recovery, runtime DB
+rules and bounded bodies are implemented. Notifications require recipient ownership
+and current request visibility; email preflight rechecks opt-in/access/stale action.
+Messages contain only a generic sign-in reminder, never business details. External
+production email must remain disabled until verified-address/abuse/provider setup.
+Email verification/recovery, runtime DB
 least privilege, ingress hardening and dependency review remain unfinished.
 **This is not production-deployment-ready.** See [session decision](docs/decisions/005-cookie-sessions.md).
 
@@ -206,7 +221,9 @@ over premature service boundaries. PostgreSQL search comes before a separate
 search cluster. RabbitMQ serves background delivery; Kafka is not required for
 our initial workload. Delivery is at least once, with a deduplicated database
 projection—not exactly-once messaging or external email. Timeline reads can lag
-committed state. Queue bounds do not solve long-term outbox retention.
+committed state. Queue bounds do not solve long-term outbox retention. SMTP acceptance and a
+PostgreSQL finish commit cannot be atomic: unknown sends/expired external leases
+are quarantined, not blindly resent; Message-ID is not provider idempotency.
 See [delivery and recovery contract](docs/async/event-delivery.md) and
 [architecture decisions](docs/decisions/README.md).
 
@@ -231,7 +248,10 @@ Implemented challenges: tenant-safe admin queries, safe permission delegation,
 immediate privilege revocation, atomic audit rollback, concurrent last-admin
 protection, immutable policy binding, approve/withdraw races, duplicate commands,
 shared detail/list visibility, tied-time pagination and fresh cursor authorization.
-Planned challenges: database-to-queue consistency, idempotent workers and cache coherence.
+Implemented challenges: atomic outbox, independent deduplicated consumers,
+recipient/access drift, preference version races, cache fallback, and SMTP acceptance
+with a failed database marker. Terminal email reconciliation, verified-address
+provider setup, retention, monitoring and measured load remain future work.
 
 ## Contributing and License
 

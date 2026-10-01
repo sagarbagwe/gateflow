@@ -23,3 +23,5 @@ outbox ownership/retries (M8), and AWS deployment (M18).
 - [ADR 009: Published policy cache](009-published-policy-cache.md)
 
 - [ADR 010: Transactional request events](010-transactional-request-events.md)
+
+- [ADR 011: Notifications and SMTP outcomes](011-notifications-and-smtp-outcomes.md)

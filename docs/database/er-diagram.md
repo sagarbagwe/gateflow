@@ -3,7 +3,7 @@
 Mermaid renders on GitHub. Every tenant-owned relationship also uses tenant-aware
 composite foreign keys; arrows alone do not show all composite key columns.
 Draft requests may be unbound until submission. M3 adds global auth-session and
-rate-limit storage. M5 adds command receipts; M8 adds outbox, consumer receipts and activity. Notifications remain deferred.
+rate-limit storage. M5 adds command receipts; M8 adds outbox, consumer receipts and activity. M9 adds notification preferences/inbox/email delivery/attempts.
 
 ```mermaid
 erDiagram
@@ -173,6 +173,50 @@ erDiagram
         bigint request_version UK
         timestamptz occurred_at
         timestamptz projected_at
+    }
+    MEMBERSHIPS ||--o| NOTIFICATION_PREFERENCES : prefers
+    MEMBERSHIPS ||--o{ NOTIFICATIONS : receives
+    OUTBOX_EVENTS ||--o{ NOTIFICATIONS : source
+    REQUESTS ||--o{ NOTIFICATIONS : updates
+    NOTIFICATIONS ||--o| NOTIFICATION_EMAIL_DELIVERIES : email_job
+    NOTIFICATION_EMAIL_DELIVERIES ||--o{ NOTIFICATION_EMAIL_ATTEMPTS : outcomes
+    NOTIFICATION_PREFERENCES {
+        uuid organization_id PK,FK
+        uuid membership_id PK,FK
+        boolean in_app_enabled
+        boolean email_enabled
+        bigint row_version
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid organization_id FK
+        uuid event_id FK
+        uuid request_id FK
+        uuid recipient_membership_id FK
+        uuid step_id FK
+        varchar kind
+        boolean in_app
+        timestamptz read_at
+    }
+    NOTIFICATION_EMAIL_DELIVERIES {
+        uuid id PK
+        uuid notification_id FK,UK
+        uuid organization_id FK
+        uuid recipient_membership_id FK
+        varchar status
+        int attempts
+        uuid lease_token
+        timestamptz lease_until
+        timestamptz available_at
+    }
+    NOTIFICATION_EMAIL_ATTEMPTS {
+        uuid delivery_id PK,FK
+        int attempt_number PK
+        uuid organization_id FK
+        uuid lease_token
+        varchar outcome
+        varchar reason
+        timestamptz finished_at
     }
     AUDIT_LOGS {
         uuid id PK

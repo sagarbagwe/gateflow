@@ -115,3 +115,15 @@ and supports descending per-request activity pages on request_activity.
 Source PK and `(organization_id,id)` support authoritative reference and tenant FK
 lookups. `ux_request_steps_event_scope` supports same-request step provenance.
 Watch index/storage growth; retention is not implemented in M8.
+
+## M9 notification indexes
+
+Own in-app feed: partial `(organization_id,recipient_membership_id,created_at DESC,
+id DESC) WHERE in_app`, plus unread partial `(organization_id,recipient_membership_id,
+request_id) WHERE in_app AND read_at IS NULL`. Resource visibility still needs joins
+and permission predicates; no constant-time count is claimed. Unique tenant/event/
+recipient and unique email notification_id enforce generation deduplication.
+`ix_email_due(available_at,id)` restricts pending/retry jobs; `ix_email_expired_lease`
+restricts processing lease recovery. Worker claims may scan locked candidates.
+Append-only attempt PK supports delivery history. Retention/index-growth operations
+are still required before production.
