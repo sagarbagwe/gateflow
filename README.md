@@ -2,9 +2,10 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 3 — authentication backend implemented and verified.**
-> Signup/login/logout/CSRF/current-user APIs work. Organization RBAC, workflow
-> execution, frontend, queues, and production deployment are not implemented yet.
+> **Status: Milestone 4 — organization-scoped RBAC.**
+> Authentication, organization bootstrap, custom roles/permissions, membership
+> management, and atomic security audit APIs work. Workflow execution, frontend,
+> queues, and production deployment are not implemented yet.
 
 ## Problem
 
@@ -20,14 +21,16 @@ the outcome. It approves requests; it does not execute payments or provision acc
 
 ## Features
 
-**Implemented:** repository/architecture, fourteen core + two auth tables, four
+**Implemented:** repository/architecture, fourteen core + two auth tables, five
 Flyway migrations, ER/index/transaction docs, Spring Boot authentication, BCrypt,
 hashed opaque sessions, CSRF/secure-cookie handling, shared auth rate limiting,
-validation/errors/request IDs, unit/HTTP/database tests, and local build/run tooling.
+validation/errors/request IDs, organization RBAC with safe delegation, protected
+admin membership, version guards, atomic security audits, unit/HTTP/database/race
+tests, and local build/run tooling.
 
-**Planned:** tenant-scoped API authorization, RBAC, versioned sequential approvals,
+**Planned:** versioned sequential approvals,
 reviewer inbox, search, notification preferences, durable background delivery,
-audit records, and concurrency-safe transitions. Parallel approvals and SLA
+comprehensive audit browsing/retention, and workflow concurrency-safe transitions. Parallel approvals and SLA
 escalation follow a working sequential workflow. See [milestones](docs/milestones.md).
 
 ## Architecture
@@ -38,7 +41,7 @@ A separate worker deployment from the same codebase is a later scaling option.
 
 ```mermaid
 flowchart LR
-    Browser[React UI - planned] --> API[Spring Boot auth implemented - business modules planned]
+    Browser[React UI - planned] --> API[Spring Boot auth and RBAC - workflow planned]
     API --> DB[(PostgreSQL)]
     API -. later cache .-> Redis[(Redis)]
     DB -. later outbox publisher .-> Queue[RabbitMQ - later]
@@ -52,18 +55,18 @@ See [system design](docs/architecture/system-design.md).
 
 | Technology | Purpose | Current status |
 | --- | --- | --- |
-| Java 21, Spring Boot 3.5.16, Maven | Backend runtime and build | Authentication backend implemented |
-| Spring Security | Session authentication, CSRF, authenticated endpoint gate | Implemented; product RBAC is M4 |
-| JPA/Hibernate, JDBC, PostgreSQL 17 | Identity persistence, atomic session/limiter SQL, relational integrity | Implemented core/auth schema |
+| Java 21, Spring Boot 3.5.16, Maven | Backend runtime and build | Authentication and RBAC implemented |
+| Spring Security | Session authentication, CSRF, authenticated endpoint gate | Implemented with tenant permission policies |
+| JPA/Hibernate, JDBC, PostgreSQL 17 | Identity persistence, atomic auth/RBAC SQL, relational integrity | Implemented core/auth schema |
 | Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
 | Redis | Measured cache use and shared rate limits | Milestone 7 |
 | RabbitMQ | Durable background jobs | Milestone 8 |
 | React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
-| JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | 34 Java tests plus 59 DB checks passed |
+| JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
 | Docker Compose, GitHub Actions | Local dependencies and CI | Dependency Compose now; CI later |
 
-Exact application dependency versions will be selected and pinned when the build
-is introduced. No release compatibility or vulnerability claim is made yet.
+Build dependency versions are pinned by the POM/Boot dependency management.
+No comprehensive vulnerability or production-capacity claim is made yet.
 
 ## System Design
 
@@ -84,7 +87,8 @@ workflow behavior is not.
 [Authentication API](docs/api/authentication.md) documents the implemented slice:
 signup, login, logout, CSRF bootstrap, and current user. Errors use sanitized
 ProblemDetail responses and request IDs. Product commands (submit/approve/reject/
-withdraw) and organization RBAC remain planned. Full OpenAPI review is Milestone 12.
+withdraw) remain planned. [RBAC API](docs/api/rbac.md) documents organization, role,
+and membership commands. Full OpenAPI review is Milestone 12.
 
 ## Local Development
 
@@ -122,9 +126,8 @@ exercise business logic or database connectivity.
 Run `bash scripts/test-db.sh` for real database integration verification: fresh
 migrations, validation, repeat-migrate no-op, SQL integrity assertions, checksum
 rejection, failed-migration rollback/revalidation, and automatic disposable-database
-cleanup. Application/security and
-multi-connection concurrency tests will accompany their features; Milestone 13
-expands them.
+cleanup. Application/security and multi-connection RBAC race tests are now
+implemented; Milestone 13 expands critical-workflow coverage.
 
 Real PostgreSQL runtime verification has also passed in the agent's Linux sandbox:
 healthy startup, SQL smoke query, host TCP password authentication, wrong-password
@@ -133,10 +136,11 @@ needed. Actual results and limitations:
 [Milestone 1 verification](docs/verification/milestone-1.md) and
 [Milestone 2 verification](docs/verification/milestone-2.md).
 
-`bash scripts/test-backend.sh` runs Maven verify: 15 unit + 19 real HTTP/PostgreSQL
-tests, with no Docker-silent skips, and packages the executable JAR. Ten additional
-packaged-application smoke checks passed. See
-[Milestone 3 evidence](docs/verification/milestone-3.md).
+`bash scripts/test-backend.sh` runs Maven verify: 25 unit + 39 real HTTP/PostgreSQL
+tests, zero failures/skips, and packages the executable JAR. The database suite
+passes 64 assertions/lifecycle checks. Eighteen packaged RBAC smoke assertions
+and cleanup also passed. See [Milestone 4 evidence](docs/verification/milestone-4.md)
+and [authentication evidence](docs/verification/milestone-3.md).
 
 ## Docker
 
@@ -161,9 +165,11 @@ assumptions, not measured throughput. Milestone 19 records before/after results.
 
 Local `.env` is ignored. Passwords use BCrypt cost 12; random session tokens are
 stored only as hashes. Secure-mode cookies use __Host prefixes; CSRF is required
-for auth writes. Shared limits fail closed on storage errors. DTOs/errors/logs avoid
-credential disclosure. Tenant/resource RBAC, email verification/recovery, runtime
-DB least privilege, ingress hardening, and dependency review are unfinished.
+for all auth and RBAC writes. Shared limits fail closed on storage errors. DTOs/errors/logs avoid
+credential disclosure. Live tenant/resource RBAC, delegation ceilings, last-admin
+protection, and security audit writes are implemented. Workflow-specific access
+rules, email verification/recovery, runtime DB least privilege, ingress hardening,
+and dependency review remain unfinished.
 **This is not production-deployment-ready.** See [session decision](docs/decisions/005-cookie-sessions.md).
 
 ## Trade-offs
@@ -184,16 +190,20 @@ Not available: the UI is not implemented.
 
 ## Demo
 
-No hosted demo exists. The agent started the packaged authentication backend
-and verified its live lifecycle against PostgreSQL. There is no browser UI yet.
+No hosted demo exists. The agent started the packaged backend and verified auth
+and RBAC lifecycles against PostgreSQL. Disposable RBAC fixtures were removed;
+there is no persistent publicly hosted service or browser UI yet.
 
 ## Engineering Challenges
 
-Versioned workflows; tenant-safe queries; approve/withdraw races; duplicate
-submission; database-to-queue consistency; idempotent workers; and avoiding
-stale authorization caches. These are planned work, not completed capabilities.
+Implemented challenges: tenant-safe admin queries, safe permission delegation,
+immediate privilege revocation, atomic audit rollback, and concurrent last-admin
+protection. Planned challenges: workflow approve/withdraw races, duplicate submission,
+database-to-queue consistency, idempotent workers, and authorization cache coherence.
 
 ## Contributing and License
 
 Follow [contributing guidance](CONTRIBUTING.md). Licensed under [MIT](LICENSE).
 Implementation-level responsibilities are in [LLD](docs/architecture/lld.md).
+
+Milestone 4 verification: [RBAC evidence and limitations](docs/verification/milestone-4.md).

@@ -1,6 +1,6 @@
-# Low-level design — authentication slice
+# Low-level design — authentication and RBAC
 
-This document describes implemented M3 classes, not the future workflow engine.
+This document describes implemented M3/M4 classes, not the future workflow engine.
 Expand it with subsequent modules. No generic factories or event bus are added
 just to demonstrate patterns.
 
@@ -75,3 +75,39 @@ Shared PostgreSQL sessions and atomic limits work across backend replicas, unlik
 in-memory maps. They also add DB traffic, hashed-key cardinality, and cleanup work.
 No throughput benchmark is claimed. Redis evaluation must preserve revocation and
 outage behavior; a stale cached ACTIVE identity must not silently undo deactivation.
+
+## M4 organization/RBAC slice
+
+| Component | Responsibility |
+| --- | --- |
+| RbacController / RbacDtos | Typed validated commands and bounded admin directories |
+| OrganizationService | Atomic bootstrap, creator quota, active-membership organization access |
+| RoleService | Custom role lifecycle, protected defaults, safe grant delegation |
+| MembershipService | Administrative enrollment, role/status transitions, last-admin invariant |
+| AuthorizationService | Live tenant membership/grant resolution; recheck after mutation lock |
+| RolePolicy / Permission | Explicit default matrix, set union, delegation/admin/version policy |
+| OrganizationRepository | Tenant reads/lock and creator quota locking |
+| RoleRepository | Tenant-scoped joins grouped into bounded role views; grant replacements |
+| MembershipRepository | Tenant-scoped directory and assignments, conditional version updates |
+| TenantAuditWriter | Same-transaction security evidence, allowed snapshots from trusted services |
+| PageSlice | Defensive immutable bounded list and hasMore metadata |
+| RbacProperties | Validated quota configuration |
+
+Controllers perform no policy decisions. Constructor injection separates HTTP,
+policy orchestration, and SQL persistence. JDBC repositories are concrete because
+there is one storage implementation; additional repository interfaces/factories
+would be unnecessary abstraction. Pure RolePolicy functions are directly testable;
+authorization collaborators are Mockito-isolated in lock/recheck tests.
+
+The set union is genuine algorithmic work: hash/enum-set membership avoids repeated
+permission scans. For P total assigned grant entries and U unique permissions,
+union takes O(P) time and O(U) space (currently U <= 12). Grouped join extraction
+uses a LinkedHashMap keyed by role ID, O(J) processing/O(R+P) storage for J returned
+rows, R roles and P grants, retaining deterministic role order without N+1 reads.
+These are modest administrative data structures, not claims of high-scale capacity.
+
+Mutations combine organization serialization with expected row-version checks:
+the lock protects cross-membership last-admin invariants, whereas versions protect
+stale client intent. Failures throw domain errors before commit; mandatory audit
+participation prevents security state without corresponding success evidence.
+[ADR 006](../decisions/006-organization-rbac.md) records alternatives and limits.

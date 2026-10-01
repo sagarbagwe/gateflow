@@ -1,6 +1,6 @@
 # Incremental delivery plan
 
-Only Milestone 1 is in scope for this change. Each major milestone requires user
+Milestones 1–4 are implemented and verified. This change covers Milestone 4 only. Each major milestone requires user
 approval after implementation, checks, fixes, and documentation. Tests/security
 invariants start with their features rather than waiting for later review phases.
 
@@ -27,8 +27,8 @@ invariants start with their features rather than waiting for later review phases
 | 19 | Performance | Measured baselines and justified before/after optimizations |
 | 20 | Security review | Threat/endpoint/dependency review with remaining risks recorded |
 
-Basic audit evidence and concurrency safeguards belong in core transactions from
-Milestone 5; later milestones make them comprehensive. Initial Docker setup is
+Basic audit evidence and concurrency safeguards start in RBAC (M4), then core
+transactions (M5); later milestones make them comprehensive. Initial Docker setup is
 not full containerization. Authentication/authorization changes invalidate any
 previous security evidence and need new tests.
 

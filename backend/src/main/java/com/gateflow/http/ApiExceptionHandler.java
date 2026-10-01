@@ -10,6 +10,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -34,6 +37,10 @@ public class ApiExceptionHandler {
                 .map(field -> Map.of("field", field.getField(), "message", field.getDefaultMessage())).toList());
         return result;
     }
+    @ExceptionHandler({HandlerMethodValidationException.class, MethodArgumentTypeMismatchException.class, ConstraintViolationException.class})
+    public ProblemDetail parameter(HttpServletRequest request) {
+        return problems.create(request, HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Invalid path or pagination parameter");
+    }
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail malformed(HttpServletRequest request) {
         return problems.create(request, HttpStatus.BAD_REQUEST, "INVALID_JSON", "Malformed or unsupported JSON fields");
@@ -54,7 +61,7 @@ public class ApiExceptionHandler {
     }
     @ExceptionHandler(DataAccessException.class)
     public ProblemDetail database(HttpServletRequest request) {
-        return problems.create(request, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", "Authentication storage is unavailable");
+        return problems.create(request, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", "Service storage is unavailable");
     }
     @ExceptionHandler(Exception.class)
     public ProblemDetail unexpected(Exception error, HttpServletRequest request) {

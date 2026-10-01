@@ -44,3 +44,7 @@ and set FLYWAY_ENABLED=false after the migration job, keeping Hibernate validati
 [session decision](../docs/decisions/005-cookie-sessions.md),
 [LLD](../docs/architecture/lld.md), and
 [verification](../docs/verification/milestone-3.md) describe behavior and limits.
+
+M4 adds organization-scoped JDBC RBAC services and live grant checks. See
+[RBAC API](../docs/api/rbac.md), [policy ADR](../docs/decisions/006-organization-rbac.md),
+and [verification](../docs/verification/milestone-4.md).

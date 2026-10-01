@@ -85,3 +85,14 @@ PostgreSQL volume. Back up anything needed first; never use this on production.
 Report passed, failed, and skipped checks separately. Static YAML parsing and
 shell syntax do not prove a running service, image availability, or database
 connectivity. Do not claim Java 21 compatibility based on a different installed JDK.
+
+## M4 configuration and fixture isolation
+
+`RBAC_ORG_LIMIT` defaults to 10 (valid 1–100); `RBAC_ROLE_LIMIT` defaults to 100
+(valid 4–1000). They have validated application defaults and do not change the
+Compose environment template. Administration writes require current expectedVersion.
+
+RBAC integration tests retain immutable audit rows until the disposable
+Testcontainers database/container is removed. Do not run their fixtures against
+shared production data or bypass append-only audit triggers for cleanup.
+No RBAC demo account passwords or fixtures are committed.

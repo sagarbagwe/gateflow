@@ -17,6 +17,11 @@ public class RequestIdFilter extends OncePerRequestFilter {
     private static final Set<String> AUTH_PATHS = Set.of("/api/v1/auth/csrf", "/api/v1/auth/signup",
             "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/me");
     private static final Logger LOG = LoggerFactory.getLogger(RequestIdFilter.class);
+    private static String safePath(String path) {
+        if (AUTH_PATHS.contains(path) || "/api/v1/organizations".equals(path)) return path;
+        if (path.startsWith("/api/v1/organizations/")) return "/api/v1/organizations/{resource}";
+        return "<unmatched>";
+    }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
         String id = UUID.randomUUID().toString();
@@ -26,7 +31,7 @@ public class RequestIdFilter extends OncePerRequestFilter {
         try { chain.doFilter(request, response); }
         finally {
             LOG.info("request_id={} method={} path={} status={} duration_ms={}", id, request.getMethod(),
-                    AUTH_PATHS.contains(request.getRequestURI()) ? request.getRequestURI() : "<unmatched>", response.getStatus(),
+                    safePath(request.getRequestURI()), response.getStatus(),
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         }
     }

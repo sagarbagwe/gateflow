@@ -11,5 +11,7 @@ means an architectural direction—not that its components are implemented.
 
 - [ADR 005: Opaque cookie sessions](005-cookie-sessions.md)
 
+- [ADR 006: Organization RBAC](006-organization-rbac.md)
+
 Future decisions: cache semantics (M7),
 outbox ownership/retries (M8), and AWS deployment (M18).

@@ -29,7 +29,9 @@ required = [
     "backend/src/main/resources/db/migration/V2__enforce_workflow_and_audit_integrity.sql",
     "backend/src/main/resources/db/migration/V3__seed_permission_catalog.sql",
     "backend/pom.xml", "backend/README.md", "scripts/test-backend.sh", "scripts/run-backend.py",
-    "docs/api/authentication.md", "docs/architecture/lld.md",
+    "docs/api/authentication.md", "docs/api/rbac.md", "docs/architecture/lld.md",
+    "docs/decisions/006-organization-rbac.md", "docs/verification/milestone-4.md",
+    "backend/src/main/resources/db/migration/V5__add_rbac_management_metadata.sql",
     "docs/decisions/005-cookie-sessions.md", "docs/verification/milestone-3.md",
 ]
 check(all((ROOT / f).is_file() for f in required), "required scaffold files exist")

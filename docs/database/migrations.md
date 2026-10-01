@@ -28,6 +28,7 @@ reviewed operator procedure.
   decision and audit guards.
 - V3: twelve permission codes; no accounts, organization roles, or assignments.
 - V4: global opaque auth sessions and shared fixed-window auth counters (M3).
+- V5: creator attribution, protected role metadata, administrative row versions (M4).
 
 Flyway creates its own `flyway_schema_history` table, separate from domain tables.
 Do not edit an applied migration. Add a new version. Validation must reject checksum
@@ -51,3 +52,7 @@ migration/runtime identities and managed secrets; runtime DDL and audit mutation
 must be denied. Authentication now exists, but production runtime DB role provisioning and
 deployment are still not implemented. The schema is sequential single-reviewer approval; future
 parallel approval requires deliberate migrations and application compatibility.
+
+V5 adds nullable creator attribution and system-role/version metadata. Existing
+roles are not auto-promoted. Fresh replay and original checksum validation are
+required; V1–V4 remain unchanged.

@@ -29,7 +29,11 @@ spring:
   jackson:
     deserialization:
       fail-on-unknown-properties: true
+      fail-on-numbers-for-enums: true
 gateflow:
+  rbac:
+    max-organizations-per-user: ${RBAC_ORG_LIMIT:10}
+    max-roles-per-organization: ${RBAC_ROLE_LIMIT:100}
   auth:
     session-ttl: ${AUTH_SESSION_TTL:PT12H}
     cookie-secure: ${AUTH_COOKIE_SECURE:true}

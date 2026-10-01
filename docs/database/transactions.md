@@ -1,7 +1,8 @@
 # Transaction boundaries and invariants
 
 Isolation starts with PostgreSQL READ COMMITTED and short, explicit transactions.
-The schema enforces integrity; these future application operations are not yet built.
+The schema enforces integrity. Role/membership/bootstrap operations below are
+implemented in M4; workflow operations remain planned for M5.
 
 ## Publish a workflow
 
@@ -39,10 +40,14 @@ conflict response. The M2 schema does not implement this full state machine.
 
 ## Role or membership change
 
-Use organization-scoped rows, validate who may grant/revoke privileges, update
-join rows/status, and record audit atomically. Future session/caching invalidation
-must not leave revoked rights authoritative in stale memory. Avoid deleting
-memberships referenced by historical requests, decisions, or audit records.
+Implemented in M4: resolve tenant membership, obtain the organization row lock,
+reauthorize after the wait, check permission/delegation/admin rules and expected
+row version, update grants/status and insert allowed-field audit in one transaction.
+A failed audit insert rolls back writes. Only one active system ADMIN may never be
+demoted/suspended through these APIs. Two simultaneous admin demotions are tested.
+Grants are reloaded from DB per request, not stored in the authentication cookie.
+Avoid deleting memberships referenced by historical requests/decisions/audits.
+Future global user disabling must handle last-admin recovery separately.
 
 ## Audit and background work
 

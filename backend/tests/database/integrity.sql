@@ -56,6 +56,16 @@ BEGIN
     INSERT INTO role_permissions VALUES (org_a, role_a, 'REQUEST_APPROVE');
     PERFORM pg_temp.assert_true('same role code allowed in different tenants', (SELECT count(*) = 2 FROM roles));
 
+    PERFORM pg_temp.assert_true('legacy named roles remain custom', (SELECT NOT is_system FROM roles WHERE id=role_a));
+    PERFORM pg_temp.expect_failure('negative role version rejected',
+        format('UPDATE roles SET row_version=-1 WHERE id=%L',role_a), '23514');
+    PERFORM pg_temp.expect_failure('negative membership version rejected',
+        format('UPDATE memberships SET row_version=-1 WHERE id=%L',member_a), '23514');
+    PERFORM pg_temp.expect_failure('unknown system-role code rejected',
+        format('INSERT INTO roles(organization_id,code,name,is_system) VALUES (%L,''ROOT'',''Root'',true)',org_a), '23514');
+    PERFORM pg_temp.expect_failure('missing organization creator rejected',
+        format('UPDATE organizations SET created_by_user_id=%L WHERE id=%L',gen_random_uuid(),org_a), '23503');
+
     PERFORM pg_temp.expect_failure('case-insensitive email uniqueness',
         'INSERT INTO users(email, display_name, password_hash) VALUES (''MEMBER.A@EXAMPLE.TEST'', ''duplicate'', ''test-fixture-not-a-real-password-hash'')', '23505');
     PERFORM pg_temp.expect_failure('duplicate tenant membership rejected',

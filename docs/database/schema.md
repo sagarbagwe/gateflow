@@ -1,8 +1,8 @@
 # Database design
 
 Current schema: fourteen M2 core tables plus two M3 authentication storage tables.
-Authentication APIs now exist. Organization RBAC and workflow execution APIs are
-not implemented. V1–V3 remain unchanged; V4 adds authentication storage.
+Authentication and organization RBAC APIs now exist; workflow execution remains
+planned. V1–V4 remain unchanged; V5 adds RBAC management metadata.
 
 ## Modeling choices
 
@@ -115,3 +115,16 @@ Submission idempotency (M5), outbox/inbox deduplication
 (M8), notifications/preferences/delivery attempts (M9), workflow dependency graphs
 and quorum reviewers (when advanced flows are approved). No generic projects/tasks
 are included because GateFlow is a request/approval product, not a task tracker.
+
+## V5 RBAC metadata
+
+- `organizations.created_by_user_id`: nullable users FK for creator quota/accountability;
+  indexed. Nullable preserves existing rows without guessing creators.
+- `roles.is_system`: false by default; true only for bootstrap defaults through the
+  API. Check limits true values to ADMIN/MANAGER/MEMBER/VIEWER codes; existing roles
+  retain false even if named ADMIN. It is not a database-owner security boundary.
+- `roles.row_version`, `memberships.row_version`: nonnegative bigint default zero;
+  conditional updates reject stale administrative edits.
+- No V1–V4 source/checksum edits, destructive rebuild, or new tables in V5.
+- Existing composite FKs keep role assignments tenant-safe; existing org/user and
+  org/code unique constraints reject duplicate membership and role creation.

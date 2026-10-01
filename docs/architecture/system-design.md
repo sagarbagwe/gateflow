@@ -1,9 +1,9 @@
 # System design
 
-Status: architecture direction with M3 authentication backend. The repository,
-PostgreSQL/core/auth schema, Flyway migrations, Spring Boot authentication APIs,
-and storage/security tests exist. Organization RBAC, workflow engine, UI, cache,
-broker, and worker are not built.
+Status: architecture direction with M3 authentication and M4 organization RBAC.
+PostgreSQL/core/auth schema, five Flyway migrations, organization/role/membership
+APIs, transactional security audit writes, and storage/security/race tests exist.
+The workflow engine, UI, cache, broker, and worker are not built.
 Dashed/future components below remain plans.
 
 Implemented storage model: [schema](../database/schema.md),
@@ -224,3 +224,18 @@ required. Authentication uses opaque hashed database sessions; see
 Local development credentials and exposed localhost ports are not an AWS design.
 Cloud service selection, restore drills, SLOs, cost estimates, and rollback strategy
 follow in the cloud/security milestones before any production claim.
+
+## Implemented M4 request/transaction flow
+
+Cookie authentication -> validated tenant path/command -> live active membership
+and permission union -> tenant-scoped resource checks -> transaction -> organization
+row lock -> fresh authorization -> delegation/admin/version checks -> writes and
+allowed-field audit -> commit -> response. No provider calls or background event
+publish occur in this slice. Audit failure rolls back the security mutation.
+
+Horizontal replicas share PostgreSQL locks and immediate grant lookups. All RBAC
+writes for one organization serialize; different organizations can proceed
+independently. This is suitable for infrequent administration, not a benchmarked
+throughput claim. Future workflow throughput should use per-request concurrency
+controls rather than the coarse RBAC lock. Directory pages are bounded and avoid
+per-row role queries; high offset/cursor search tuning remains M6.

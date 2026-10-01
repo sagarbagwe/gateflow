@@ -7,6 +7,7 @@ rate-limit storage. Notification/outbox tables remain deferred.
 
 ```mermaid
 erDiagram
+    USERS o|--o{ ORGANIZATIONS : created_by
     USERS ||--o{ MEMBERSHIPS : joins
     USERS ||--o{ AUTH_SESSIONS : authenticates
     ORGANIZATIONS ||--o{ MEMBERSHIPS : has
@@ -49,6 +50,7 @@ erDiagram
         varchar status
     }
     ORGANIZATIONS {
+        uuid created_by_user_id FK
         uuid id PK
         varchar slug UK
     }
@@ -56,9 +58,12 @@ erDiagram
         uuid id PK
         uuid organization_id FK
         uuid user_id FK
+        bigint row_version
         varchar status
     }
     ROLES {
+        boolean is_system
+        bigint row_version
         uuid id PK
         uuid organization_id FK
         varchar code

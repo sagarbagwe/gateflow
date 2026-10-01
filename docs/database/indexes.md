@@ -70,3 +70,7 @@ organization timeline may need a different index once its query is implemented.
 Full-text/GIN search indexes, archival partitioning, read replicas, and extensive
 reporting indexes are deferred to relevant measured workloads. No EXPLAIN or
 N+1-performance claim is made from an empty database.
+
+M4 adds `ix_organizations_creator` for creator quota counting. Existing tenant
+role/member indexes support bounded directory queries; no benchmarked query tuning
+is claimed. Role lists page before joining grants; membership roles are batch-loaded.
