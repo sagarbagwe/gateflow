@@ -48,3 +48,8 @@ and set FLYWAY_ENABLED=false after the migration job, keeping Hibernate validati
 M4 adds organization-scoped JDBC RBAC services and live grant checks. See
 [RBAC API](../docs/api/rbac.md), [policy ADR](../docs/decisions/006-organization-rbac.md),
 and [verification](../docs/verification/milestone-4.md).
+
+M5 implements typed workflow configuration, sequential request execution,
+per-request concurrency and durable command receipts. See [Core API](../docs/api/workflows.md),
+[ADR 007](../docs/decisions/007-sequential-workflow-commands.md) and
+[verification](../docs/verification/milestone-5.md).

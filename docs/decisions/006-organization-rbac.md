@@ -74,3 +74,7 @@ runtime role; triggers/API policies do not protect against an owner bypass.
 Full audit browsing/retention/permissions, OpenAPI, business workflows, rate-limits
 for admin traffic, and load measurements remain later milestones. Auth routes
 retain M3 rate-limits; per-user org and per-org role quotas bound these creations.
+
+M5 evolution: the catalog now has 13 codes. REQUEST_REASSIGN is explicitly added
+to protected ADMIN roles; other defaults/custom roles retain their grants. See
+[ADR 007](007-sequential-workflow-commands.md) for the business-command locking model.

@@ -13,5 +13,7 @@ means an architectural direction—not that its components are implemented.
 
 - [ADR 006: Organization RBAC](006-organization-rbac.md)
 
+- [ADR 007: Sequential workflow commands](007-sequential-workflow-commands.md)
+
 Future decisions: cache semantics (M7),
 outbox ownership/retries (M8), and AWS deployment (M18).

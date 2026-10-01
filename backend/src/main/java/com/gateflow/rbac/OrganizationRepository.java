@@ -89,4 +89,12 @@ public class OrganizationRepository {
         return new ApiException(
                 HttpStatus.NOT_FOUND, "ORGANIZATION_NOT_FOUND", "Organization not found");
     }
+
+    public void share(UUID org) {
+        if (jdbc.query(
+                        "SELECT id FROM organizations WHERE id=? FOR SHARE",
+                        (rs, n) -> rs.getObject(1, UUID.class),
+                        org)
+                .isEmpty()) throw notFound();
+    }
 }

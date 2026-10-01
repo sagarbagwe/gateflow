@@ -54,4 +54,11 @@ public class AuthorizationService {
         organizations.lock(org);
         return require(user, org, required); // Recheck after waiting; no stale-grant TOCTOU.
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AccessView shareAndRequire(UUID user, UUID org, Permission... required) {
+        requireMember(user, org);
+        organizations.share(org);
+        return require(user, org, required);
+    }
 }

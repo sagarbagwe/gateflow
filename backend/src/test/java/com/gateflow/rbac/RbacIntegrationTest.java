@@ -208,7 +208,7 @@ class RbacIntegrationTest {
         var o = org(a);
         var me = access(a, o);
         assertThat(me.get("userId").asText()).isEqualTo(a.user);
-        assertThat(me.get("permissions").size()).isEqualTo(12);
+        assertThat(me.get("permissions").size()).isEqualTo(Permission.values().length);
         var list = ok(a.get(base(o) + "/roles"), 200).get("items");
         assertThat(list.size()).isEqualTo(4);
         for (var r : list) {
@@ -268,7 +268,7 @@ class RbacIntegrationTest {
         var ob = org(b);
         enroll(owner, oa, b, role(owner, oa, "MEMBER"));
         assertThat(access(b, oa).get("permissions").size()).isEqualTo(4);
-        assertThat(access(b, ob).get("permissions").size()).isEqualTo(12);
+        assertThat(access(b, ob).get("permissions").size()).isEqualTo(Permission.values().length);
         problem(b.get(base(oa) + "/roles"), 403, "PERMISSION_DENIED");
         problem(b.get(base(oa) + "/memberships"), 403, "PERMISSION_DENIED");
         assertThat(ok(b.get("/api/v1/organizations"), 200).get("items").size()).isEqualTo(2);
@@ -439,7 +439,7 @@ class RbacIntegrationTest {
         problem(change(a, o, id, 0, role(a, o, "MEMBER")), 409, "LAST_ADMIN");
         problem(status(a, o, id, 0, "SUSPENDED"), 409, "LAST_ADMIN");
         assertThat(audits(o)).isEqualTo(1);
-        assertThat(access(a, o).get("permissions").size()).isEqualTo(12);
+        assertThat(access(a, o).get("permissions").size()).isEqualTo(Permission.values().length);
     }
 
     @Test

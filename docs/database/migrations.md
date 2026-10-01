@@ -29,6 +29,7 @@ reviewed operator procedure.
 - V3: twelve permission codes; no accounts, organization roles, or assignments.
 - V4: global opaque auth sessions and shared fixed-window auth counters (M3).
 - V5: creator attribution, protected role metadata, administrative row versions (M4).
+- V6: workflow command ledger, state guards, policy row versions, REQUEST_REASSIGN (M5).
 
 Flyway creates its own `flyway_schema_history` table, separate from domain tables.
 Do not edit an applied migration. Add a new version. Validation must reject checksum
@@ -56,3 +57,13 @@ parallel approval requires deliberate migrations and application compatibility.
 V5 adds nullable creator attribution and system-role/version metadata. Existing
 roles are not auto-promoted. Fresh replay and original checksum validation are
 required; V1–V4 remain unchanged.
+
+V6 introduces version tokens, sequential state/active-step guards, an append-only
+command ledger and REQUEST_REASSIGN backfill for protected ADMIN only. A real
+PostgreSQL upgrade test applies V1–V5, creates existing protected/custom roles,
+then applies V6, validates old checksums and verifies repeat-migrate no-op.
+
+V6 uses ordinary transactional DDL/index creation, not an online large-table
+index rollout. Preflight existing ACTIVE-step duplicates and schedule/measure
+locks before applying it to a populated production DB. Do not silently delete
+legacy steps or bypass guards to make the migration pass.

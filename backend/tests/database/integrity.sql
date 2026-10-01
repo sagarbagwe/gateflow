@@ -38,7 +38,7 @@ DECLARE
     decision_a uuid := gen_random_uuid(); audit_a uuid := gen_random_uuid();
     affected integer;
 BEGIN
-    PERFORM pg_temp.assert_true('twelve permission codes seeded', (SELECT count(*) = 12 FROM permissions));
+    PERFORM pg_temp.assert_true('thirteen permission codes seeded', (SELECT count(*) = 13 FROM permissions));
     PERFORM pg_temp.assert_true('fourteen core domain tables created',
         (SELECT count(*) = 14 FROM information_schema.tables
          WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name IN ('users','organizations','memberships','roles','permissions','membership_roles',
@@ -184,6 +184,35 @@ BEGIN
         PERFORM pg_temp.expect_failure('zero limiter counter rejected',
             format('INSERT INTO auth_rate_limit_buckets VALUES (%L,now(),0)',repeat('a',64)), '23514');
     END IF;
+    PERFORM pg_temp.expect_failure('negative workflow version rejected',
+        format('UPDATE workflow_versions SET row_version=-1 WHERE id=%L',ver_empty), '23514');
+    PERFORM pg_temp.expect_failure('execution step provenance cannot change',
+        format('UPDATE request_steps SET workflow_step_id=%L WHERE id=%L',step_a2,instance_a), '55000');
+    PERFORM pg_temp.expect_failure('only one active step per request',
+        format('INSERT INTO request_steps(organization_id,request_id,workflow_version_id,workflow_step_id,assigned_membership_id,state,activated_at) VALUES (%L,%L,%L,%L,%L,''ACTIVE'',now())',org_a,request_a,ver_a,step_a2,member_a), '23505');
+    PERFORM pg_temp.expect_failure('active step cannot return to waiting',
+        format('UPDATE request_steps SET state=''WAITING'' WHERE id=%L',instance_a), '23514');
+    UPDATE request_steps SET state='APPROVED',completed_at=now() WHERE id=instance_a;
+    PERFORM pg_temp.expect_failure('terminal step is immutable',
+        format('UPDATE request_steps SET row_version=row_version+1 WHERE id=%L',instance_a), '55000');
+    UPDATE requests SET state='APPROVED',completed_at=now() WHERE id=request_a;
+    PERFORM pg_temp.expect_failure('terminal request is immutable',
+        format('UPDATE requests SET row_version=row_version+1 WHERE id=%L',request_a), '55000');
+    INSERT INTO command_receipts(organization_id,actor_membership_id,idempotency_key,operation,payload_hash,request_id)
+        VALUES(org_a,member_a,decision_a,'SUBMIT',repeat('a',64),request_a);
+    PERFORM pg_temp.expect_failure('receipt keys unique within actor and tenant',
+        format('INSERT INTO command_receipts VALUES (%L,%L,%L,''SUBMIT'',%L,%L,now())',org_a,member_a,decision_a,repeat('a',64),request_a), '23505');
+    PERFORM pg_temp.expect_failure('receipt cross-tenant actor rejected',
+        format('INSERT INTO command_receipts VALUES (%L,%L,%L,''SUBMIT'',%L,%L,now())',org_a,member_b,gen_random_uuid(),repeat('a',64),request_a), '23503');
+    PERFORM pg_temp.expect_failure('receipt cross-tenant request rejected',
+        format('INSERT INTO command_receipts VALUES (%L,%L,%L,''SUBMIT'',%L,%L,now())',org_b,member_b,gen_random_uuid(),repeat('a',64),request_a), '23503');
+    PERFORM pg_temp.expect_failure('receipt invalid hash rejected',
+        format('INSERT INTO command_receipts VALUES (%L,%L,%L,''SUBMIT'',%L,%L,now())',org_a,member_a,gen_random_uuid(),repeat('z',64),request_a), '23514');
+    PERFORM pg_temp.expect_failure('receipt invalid operation rejected',
+        format('INSERT INTO command_receipts VALUES (%L,%L,%L,''DELETE'',%L,%L,now())',org_a,member_a,gen_random_uuid(),repeat('a',64),request_a), '23514');
+    PERFORM pg_temp.expect_failure('receipt update rejected', 'UPDATE command_receipts SET operation=''WITHDRAW''', '55000');
+    PERFORM pg_temp.expect_failure('receipt deletion rejected', 'DELETE FROM command_receipts', '55000');
+    PERFORM pg_temp.expect_failure('receipt truncation rejected', 'TRUNCATE command_receipts', '55000');
     PERFORM pg_temp.expect_failure('history prevents membership deletion',
         format('DELETE FROM memberships WHERE id=%L',member_a), '23503');
 END;

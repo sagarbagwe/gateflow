@@ -74,3 +74,9 @@ N+1-performance claim is made from an empty database.
 M4 adds `ix_organizations_creator` for creator quota counting. Existing tenant
 role/member indexes support bounded directory queries; no benchmarked query tuning
 is claimed. Role lists page before joining grants; membership roles are batch-loaded.
+
+M5 adds unique partial `ux_request_steps_one_active` on request_id (ACTIVE only)
+and `ix_command_receipts_request` for tenant/request ledger lookups. The receipt PK
+supports organization/actor/key lookup. Reviewer queries use existing tenant role
+assignment indexes and active account/membership predicates; deterministic order
+can require sorting. No measured EXPLAIN/load optimization claim is made yet.

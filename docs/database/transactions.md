@@ -1,79 +1,80 @@
-# Transaction boundaries and invariants
+# Implemented transaction boundaries and invariants
 
-Isolation starts with PostgreSQL READ COMMITTED and short, explicit transactions.
-The schema enforces integrity. Role/membership/bootstrap operations below are
-implemented in M4; workflow operations remain planned for M5.
+Commands use PostgreSQL READ COMMITTED with short transactions. Multi-query request
+and version GETs use REPEATABLE READ for a consistent projection. Authentication
+and RBAC boundaries remain as documented in their ADRs.
 
-## Publish a workflow
+## Lock ordering
 
-Lock/update the draft version row; validate its typed conditions and approver
-rules; validate contiguous step positions; publish and record audit in one
-transaction. The database step-edit trigger locks the same parent row so published
-configuration cannot be silently edited. Concurrent publication/edit behavior
-needs multi-connection tests with the engine, not just sequential SQL assertions.
+1. Core command: verify membership, acquire organization FOR SHARE, reload grants.
+   RBAC changes use organization FOR UPDATE and reauthorize after waiting.
+2. Request command: acquire transaction advisory lock for tenant/actor/key.
+3. Lock configuration definition/version OR request aggregate, depending on command.
+4. Validate current state/version/eligibility; write local rows, audit, receipt.
+5. Commit releases all locks. No provider/broker call occurs inside the transaction.
 
-## Submit a request
+Core shared tenant locks coordinate revocation without serializing all unrelated
+request aggregates. Creator/bootstrap user locking remains separate. Future global
+account disabling must coordinate tenant locks and last-admin recovery separately.
 
-Authenticate/authorize tenant membership. Load and validate the draft payload,
-pick a published version, bind it, create step instances/assignments, activate the
-first eligible step, set submission time/state, bump `row_version`, and insert
-audit evidence in one transaction. At M5 add an organization-scoped idempotency
-record and payload hash. At M8 add outbox rows in the same transaction. External
-providers are never called inside it.
+## Configure/publish workflow
 
-## Decide a step
+Lock definition to assign version ordinals and serialize policy edits; lock draft
+version; validate bounded typed steps, approver-role scope/grants and currency rules;
+replace steps or publish and insert audit. Expected policy row versions reject stale
+client intent. Published versions/steps remain immutable through application and DB
+triggers. Publish-versus-edit races cannot expose mixed configuration.
 
-Read an organization-scoped request and step; validate active state, membership,
-role/permission, assignment, and self-approval policy. Perform a guarded update
-using expected versions/state, insert the unique decision, advance step/request,
-and record audit atomically. SQL uniqueness handles duplicate decisions; a
-conflicting update must roll back the whole operation, not partially advance it.
-The database prevents a different assigned reviewer ID from being substituted;
-current role eligibility and deactivation are still application responsibilities.
+## Submit request
 
-## Withdraw
+Require REQUEST_SUBMIT and REQUEST_VIEW_OWN. Bind an explicit published version;
+evaluate conditions; select eligible non-requester assignees for ALL applicable
+steps before writes. Create IN_REVIEW aggregate and ordered execution instances,
+mark non-applicable steps SKIPPED, activate first applicable step, insert safe audit
+and command receipt atomically. No applicable step or unavailable assignee rolls
+back without a receipt. Request version starts at zero.
 
-Verify ownership/permission and legal lifecycle state. Guard request version,
-cancel relevant pending steps, complete the request, and record audit atomically.
-Approve-versus-withdraw races require one transaction winner and an explicit
-conflict response. The M2 schema does not implement this full state machine.
+## Decide step
 
-## Role or membership change
+Require REQUEST_APPROVE and resource visibility. After request lock, check request
+IN_REVIEW, expected version, ACTIVE step, current assignment, required role,
+effective permission, and non-requester identity. For approval, revalidate next
+WAITING assignee before committing current decision. Insert immutable decision,
+finish step, activate next or complete request; rejection cancels pending steps.
+Bump aggregate version and insert audit/receipt in the same transaction.
 
-Implemented in M4: resolve tenant membership, obtain the organization row lock,
-reauthorize after the wait, check permission/delegation/admin rules and expected
-row version, update grants/status and insert allowed-field audit in one transaction.
-A failed audit insert rolls back writes. Only one active system ADMIN may never be
-demoted/suspended through these APIs. Two simultaneous admin demotions are tested.
-Grants are reloaded from DB per request, not stored in the authentication cookie.
-Avoid deleting memberships referenced by historical requests/decisions/audits.
-Future global user disabling must handle last-admin recovery separately.
+SQL uniqueness additionally prevents duplicate decisions or two ACTIVE steps.
+The unavailable-next-reviewer case rolls back completely; admin can restore or
+explicitly reassign the pending reviewer rather than silently bypassing a policy.
 
-## Audit and background work
+## Withdraw/reassign
 
-Insert an audit row inside the business transaction so rollback does not leave a
-false success record. Audit masking/allowed fields are M10 application behavior.
-Later consumers atomically insert deduplication markers and local notification
-records; email sends remain outside PostgreSQL transactions.
+Requester + withdrawal/own-view permissions may withdraw IN_REVIEW, cancelling
+pending steps and recording terminal timestamp/version/audit/receipt. Approval vs
+withdrawal serializes on the request; only one matching-version intent wins.
 
-## Optimistic updates
+Reassignment requires REQUEST_REASSIGN and REQUEST_VIEW_ALL, a pending step, current
+request version and an eligible non-requester target. It updates assignment/step
+version/request version plus audit/receipt. Completed decisions are never moved to
+another reviewer. Terminal requests/steps are immutable.
 
-```sql
-UPDATE requests
-SET state = :new_state, row_version = row_version + 1
-WHERE organization_id = :verified_org AND id = :id
-  AND row_version = :expected_version AND state = :expected_state;
-```
+## Receipt/rollback semantics
 
-Exactly one updated row means the guard succeeded, not that all authorization
-checks are satisfied. Zero rows requires a scoped distinction between missing
-resource and conflict. No blind retry of non-idempotent commands. The database
-CHECKs enforce valid field combinations, but not every allowed state transition.
+Same actor/tenant/key -> transaction advisory lock -> compare kind/path/body hash.
+Successful replay reauthorizes then locks/reads current state of the same resource.
+Different-key actions still serialize on the aggregate and check expected version.
+Receipt insert occurs AFTER local business/audit writes, within the transaction;
+any failure rolls back all of them. No reservation row can commit incomplete.
+Receipts are append-only; no automatic expiration weakens retry guarantees.
 
-## Operational boundaries
+## RBAC, audit and future async work
 
-Flyway applies each versioned PostgreSQL migration transactionally. Keep data
-backfills bounded and review locks before production rollout. DDL/data mutation
-permissions belong to a migration role; runtime should not own tables. A future
-retention/anonymization process requires explicit policy and elevated tooling,
-not ordinary DELETE APIs or CASCADE chains.
+RBAC uses scoped rows, exclusive tenant lock, fresh authorization, safe delegation,
+expected role/member version and last-admin checks; security mutations audit
+atomically. Membership/history rows are not deleted through normal flows.
+Allowed snapshot fields are explicitly built by services, not full request bodies.
+Comprehensive audit browsing/retention/security review remain M10/M20.
+
+At M8, transactional outbox writes will join business commit. Consumer deduplication
+and provider delivery remain separate failure domains; this M5 ledger does not
+promise exactly-once emails or external payments/provisioning.

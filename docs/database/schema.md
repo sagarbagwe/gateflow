@@ -1,8 +1,9 @@
 # Database design
 
-Current schema: fourteen M2 core tables plus two M3 authentication storage tables.
-Authentication and organization RBAC APIs now exist; workflow execution remains
-planned. V1–V4 remain unchanged; V5 adds RBAC management metadata.
+Current schema: fourteen core tables, two authentication tables and one command
+receipt ledger (17 application tables, excluding Flyway history). Authentication,
+RBAC and sequential workflow APIs exist. V1–V5 are unchanged; V6 adds core-command
+metadata, guards and one product permission.
 
 ## Modeling choices
 
@@ -128,3 +129,20 @@ are included because GateFlow is a request/approval product, not a task tracker.
 - No V1–V4 source/checksum edits, destructive rebuild, or new tables in V5.
 - Existing composite FKs keep role assignments tenant-safe; existing org/user and
   org/code unique constraints reject duplicate membership and role creation.
+
+## V6 workflow command invariants
+
+- `workflow_versions.row_version`: nonnegative bigint, default 0; draft/publication
+  concurrency token, separate from version_number.
+- `command_receipts`: composite PK (organization_id, actor_membership_id,
+  idempotency_key); operation enum constraint; SHA-256 hex fingerprint; same-tenant
+  actor/request FKs; created_at. Append-only including TRUNCATE guards.
+- `ux_request_steps_one_active`: unique request_id where state=ACTIVE. At most one
+  active step; application guarantees one while IN_REVIEW when submitting/advancing.
+- Request state transitions and execution-step provenance/terminal guards supplement
+  M2 immutability. External owner writes are not a complete application RBAC engine.
+- New REQUEST_REASSIGN catalog entry; explicit backfill only for protected system
+  ADMIN roles. Custom/legacy name matches never gain it automatically.
+- No request DRAFT API: M5 binds direct submissions into IN_REVIEW. DRAFT remains a
+  valid stored state for compatibility; direct submission is one atomic operation.
+- There is no automatic receipt expiry/retention job or provider-delivery ledger.

@@ -1,6 +1,6 @@
-# Low-level design — authentication and RBAC
+# Low-level design — authentication, RBAC, and workflows
 
-This document describes implemented M3/M4 classes, not the future workflow engine.
+This document describes implemented M3/M4/M5 classes. Parallel/async workflows remain future work.
 Expand it with subsequent modules. No generic factories or event bus are added
 just to demonstrate patterns.
 
@@ -111,3 +111,47 @@ the lock protects cross-membership last-admin invariants, whereas versions prote
 stale client intent. Failures throw domain errors before commit; mandatory audit
 participation prevents security state without corresponding success evidence.
 [ADR 006](../decisions/006-organization-rbac.md) records alternatives and limits.
+
+## M5 workflow/request slice
+
+| Component | Responsibility |
+| --- | --- |
+| WorkflowController / RequestController | HTTP adaptation, validated commands, replay/status headers |
+| WorkflowDtos | Typed bounded immutable projections and explicit state/condition enums |
+| WorkflowPolicy | Currency-safe conditions, payload rules, legal lifecycle/version guards |
+| WorkflowService / WorkflowRepository | Draft/version/publication policy and tenant SQL |
+| RequestService | Aggregate submission, visibility, decision/withdraw/reassign orchestration |
+| RequestRepository | Scoped row locking, ordered step/decision projections, guarded writes |
+| ReviewerService | Current membership/role/permission/self-approval eligibility and deterministic selection |
+| CommandReceipts | Same-transaction key serialization, intent comparison, immutable durable receipt |
+| WorkflowJson | Bounded typed payload encoding/decoding and canonical SHA-256 fingerprinting |
+| RequestBodyLimitFilter | Actual-byte cap before synchronous JSON deserialization |
+
+Constructor injection separates transport, orchestration, pure policy and SQL.
+Repositories use JDBC because conditional transitions and row locks are deliberate
+operations, not generic entity CRUD. A Supplier callback lets CommandReceipts wrap
+transactional commands without a fake command bus, inheritance tree, or factory.
+Mandatory transaction propagation rejects receipt/audit usage outside the caller's
+transaction. No observer/event bus is claimed; outbox/events belong to M8.
+
+Conditions are a closed enum: ALWAYS and PURCHASE_AMOUNT_AT_LEAST. Adding condition
+kinds requires a deliberate DTO/policy/test change. A Strategy hierarchy would be
+premature for two simple cases; provider strategies remain justified for M9.
+
+### Algorithmic thinking grounded in this implementation
+
+For S configured steps and D distinct applicable approver roles, evaluate/order
+steps in O(S) time and O(S+D) bookkeeping. A hash map memoizes reviewer selection
+within the command so repeated roles require D queries, not S. Eligibility queries
+have data-dependent SQL cost (not asserted O(1)); indexes/query plans need later
+measurement. Next-step lookup is an ordered O(S) scan; with S <= 50 a linked graph,
+heap or workflow compiler is unnecessary. Repeated role membership does not enforce
+distinct humans; that would require a separate business rule and algorithm.
+
+Canonical hashing sorts object keys: for K fields, O(K log K) sorting plus O(B)
+byte traversal and O(B) temporary storage for B bounded encoded bytes. Normalized
+decimal values avoid treating 1000 and 1000.00 as different monetary intent. Lists
+retain order; reordering a meaningful command list is not canonicalized away.
+
+[ADR 007](../decisions/007-sequential-workflow-commands.md) explains why, alternatives,
+transaction/locking trade-offs, failures and scaling limits.

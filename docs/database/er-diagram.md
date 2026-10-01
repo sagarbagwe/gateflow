@@ -3,7 +3,7 @@
 Mermaid renders on GitHub. Every tenant-owned relationship also uses tenant-aware
 composite foreign keys; arrows alone do not show all composite key columns.
 Draft requests may be unbound until submission. M3 adds global auth-session and
-rate-limit storage. Notification/outbox tables remain deferred.
+rate-limit storage. M5 adds command receipts; notification/outbox tables remain deferred.
 
 ```mermaid
 erDiagram
@@ -28,6 +28,9 @@ erDiagram
     MEMBERSHIPS o|--o{ REQUEST_STEPS : assigned
     REQUEST_STEPS ||--o| APPROVAL_DECISIONS : decided_once
     MEMBERSHIPS ||--o{ APPROVAL_DECISIONS : reviewer
+    ORGANIZATIONS ||--o{ COMMAND_RECEIPTS : commands
+    MEMBERSHIPS ||--o{ COMMAND_RECEIPTS : retries
+    REQUESTS ||--o{ COMMAND_RECEIPTS : result
     ORGANIZATIONS ||--o{ AUDIT_LOGS : evidence
     MEMBERSHIPS o|--o{ AUDIT_LOGS : user_actor
 
@@ -87,6 +90,7 @@ erDiagram
         varchar name
     }
     WORKFLOW_VERSIONS {
+        bigint row_version
         uuid id PK
         uuid organization_id FK
         uuid workflow_definition_id FK
@@ -127,6 +131,15 @@ erDiagram
         uuid request_step_id FK,UK
         uuid reviewer_membership_id FK
         varchar decision
+    }
+    COMMAND_RECEIPTS {
+        uuid organization_id PK,FK
+        uuid actor_membership_id PK,FK
+        uuid idempotency_key PK
+        varchar operation
+        char payload_hash
+        uuid request_id FK
+        timestamptz created_at
     }
     AUDIT_LOGS {
         uuid id PK

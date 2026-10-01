@@ -96,3 +96,17 @@ RBAC integration tests retain immutable audit rows until the disposable
 Testcontainers database/container is removed. Do not run their fixtures against
 shared production data or bypass append-only audit triggers for cleanup.
 No RBAC demo account passwords or fixtures are committed.
+
+## M5 execution and test isolation
+
+Use auth/CSRF and the organization-scoped [workflow commands](api/workflows.md).
+There is no seeded business tenant or public demo. All request commands require a
+fresh UUID-shaped Idempotency-Key per business intent; retry the same original
+command with that key after a timeout. Versions are from response bodies.
+
+Workflow tests use disposable PostgreSQL containers. Receipt/audit/decision rows
+are append-only; cleanup removes the entire disposable database/container, never
+bypassing guards on a shared product database. No broker, Redis or frontend is
+required to run the M5 synchronous core. The body limit is fixed at 256 KiB for
+current synchronous JSON POST/PUT/PATCH routes. Streaming/async uploads require
+a deliberately different bounded transport before introducing those APIs.

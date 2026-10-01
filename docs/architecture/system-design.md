@@ -1,9 +1,9 @@
 # System design
 
-Status: architecture direction with M3 authentication and M4 organization RBAC.
-PostgreSQL/core/auth schema, five Flyway migrations, organization/role/membership
-APIs, transactional security audit writes, and storage/security/race tests exist.
-The workflow engine, UI, cache, broker, and worker are not built.
+Status: implemented authentication, organization RBAC and sequential workflow
+engine (M3–M5). Six Flyway migrations, workflow/request APIs, durable command
+receipts, transactional audits and storage/security/race tests exist. UI, cache,
+broker and worker are not built.
 Dashed/future components below remain plans.
 
 Implemented storage model: [schema](../database/schema.md),
@@ -239,3 +239,28 @@ independently. This is suitable for infrequent administration, not a benchmarked
 throughput claim. Future workflow throughput should use per-request concurrency
 controls rather than the coarse RBAC lock. Directory pages are bounded and avoid
 per-row role queries; high offset/cursor search tuning remains M6.
+
+## Implemented M5 synchronous core
+
+Publication: auth/CSRF/body bounds -> shared tenant authorization lock -> definition
+and draft-version row locks -> typed role/condition validation -> immutable
+publication + audit -> commit. Version ordinals and concurrency tokens differ.
+
+Submission: auth/CSRF -> shared organization lock and live permissions -> scoped
+idempotency advisory lock -> published policy/conditional steps/current assignees
+-> request + execution steps + audit + receipt -> commit. Retries return that
+request's current representation without repeating the operation.
+
+Decision/withdraw/reassign: shared tenant authorization lock -> idempotency-key
+lock -> request aggregate row lock -> state/version/resource/assignment eligibility
+-> step/decision/request mutations + audit + receipt -> commit. No network provider
+calls. M8 will write an outbox in this transaction before publishing asynchronously.
+
+Horizontal API instances share one PostgreSQL primary, coordinating through
+transaction row/advisory locks; no in-memory grant or key registry is authoritative.
+Unrelated aggregates can mutate concurrently; hot aggregates serialize. Shared
+organization locks briefly block exclusive RBAC mutation, not other workflow
+commands. Full load/capacity/latency claims await M19 measurements.
+
+[Core API](../api/workflows.md) and [ADR 007](../decisions/007-sequential-workflow-commands.md)
+define actual success/retry/visibility and failure semantics.

@@ -26,6 +26,8 @@ Base: `/api/v1/organizations`.
 
 Protected ADMIN membership additionally requires a real system ADMIN role.
 No global tenant-bypass role, membership deletion, or organization-update API exists.
+M5 adds REQUEST_REASSIGN to protected ADMIN only; it requires REQUEST_VIEW_ALL
+for reviewer-reassignment commands. The shared permission catalog now has 13 codes.
 
 ## Payloads
 
