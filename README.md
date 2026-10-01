@@ -2,7 +2,7 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 12 — stable APIs and protected OpenAPI/Swagger.**
+> **Status: Milestone 13 — reproducible layered testing and measured coverage.**
 > Authentication/RBAC, workflows, search, policy cache and event delivery work.
 > In-app inbox/preferences and opt-in email use current access checks and durable jobs.
 > Tenant-wide audit investigation requires AUDIT_VIEW; normal writes remain append-only.
@@ -286,3 +286,8 @@ and [Milestone 11 verification](docs/verification/milestone-11.md).
 [Conventions](docs/api/conventions.md), [Swagger setup](docs/api/openapi.md) and
 [generated specification](docs/api/openapi.json). Documentation is disabled by default
 and session-protected when enabled.
+
+## Verification strategy
+
+[Testing strategy](docs/testing/strategy.md); packaged API E2E is reproducible with
+`bash scripts/test-e2e.sh`. JaCoCo reports are generated during Maven verify.

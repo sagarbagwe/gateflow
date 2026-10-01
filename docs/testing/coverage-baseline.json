@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "e049b1a96c8366b06cb401f326a21de37ba1ba95754b85692cb1e8085cf14124",
+  "method": "JaCoCo 0.8.14 full clean Maven verify; raw report root counters independently reconciled with package counters",
+  "counters": {
+    "BRANCH": {
+      "covered": 842,
+      "missed": 135,
+      "total": 977,
+      "percent": 86.18219037871033
+    },
+    "LINE": {
+      "covered": 2704,
+      "missed": 93,
+      "total": 2797,
+      "percent": 96.67500893814801
+    }
+  }
+}
