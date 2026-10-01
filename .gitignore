@@ -1,0 +1,25 @@
+# Local secrets and overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Java
+**/target/
+**/build/
+.gradle/
+# Frontend
+**/node_modules/
+**/dist/
+**/coverage/
+.next/
+# Tooling
+.idea/
+.vscode/
+*.iml
+.DS_Store
+__pycache__/
+*.pyc
+*.log
+# Generated exports
+*.zip
