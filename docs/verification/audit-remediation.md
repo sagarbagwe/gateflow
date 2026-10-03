@@ -64,3 +64,13 @@ The workflow update was not committed to the active workflow. The prepared versi
 [ci-workflow.pending.yml](../ci/ci-workflow.pending.yml); runtime scripts can be committed
 without changing workflow permissions. Existing CI must not be described as running these
 new checks until the workflow is applied with authorized workflow-write access.
+
+## Observed live deployment after the frontend push
+
+The public page returned 200 and loaded assets `index-DOXbwnGg.js` and
+`index-DOXg61Q4.css`, matching this session's production build. The HTML response
+now includes the configured CSP, nosniff, DENY frame protection, no-referrer,
+HTTPS HSTS and camera/microphone/geolocation restrictions. CSRF bootstrap returned
+200 and `/api/v1/auth/me` remained 401 while signed out. No browser page errors
+were reported on this public-screen check. Private authenticated workflows and
+GitHub Actions run status were not verified by this deployment observation.

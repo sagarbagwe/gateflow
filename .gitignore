@@ -26,4 +26,4 @@ __pycache__/
 *.tsbuildinfo
 # Local browser-test fixtures and captures
 frontend/.qa/
-verification/
+/verification/
