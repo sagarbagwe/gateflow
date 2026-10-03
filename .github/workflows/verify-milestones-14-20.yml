@@ -28,7 +28,9 @@ jobs:
         id: audit
         continue-on-error: true
         working-directory: frontend
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          set -o pipefail
+          npm audit --omit=dev --audit-level=high 2>&1 | tee ../audit.log
       - name: Compose configuration
         id: compose
         continue-on-error: true
@@ -40,7 +42,9 @@ jobs:
       - name: Full stack smoke test
         id: stack
         continue-on-error: true
-        run: bash scripts/test-stack.sh
+        run: |
+          set -o pipefail
+          bash scripts/test-stack.sh 2>&1 | tee stack.log
       - name: Observability contract
         id: observability
         continue-on-error: true
@@ -51,7 +55,9 @@ jobs:
       - name: Performance smoke
         id: performance
         continue-on-error: true
-        run: docker run --rm --network host -v "$PWD/scripts:/scripts:ro" grafana/k6:0.57.0 run /scripts/performance-smoke.js
+        run: |
+          set -o pipefail
+          docker run --rm --network host -v "$PWD/scripts:/scripts:ro" grafana/k6:0.57.0 run /scripts/performance-smoke.js 2>&1 | tee performance.log
       - name: Architecture security and CI evidence
         id: documents
         continue-on-error: true
@@ -89,7 +95,13 @@ jobs:
           names=['FRONTEND','AUDIT','COMPOSE','IMAGES','STACK','OBSERVABILITY','PERFORMANCE','DOCUMENTS']
           labels={'FRONTEND':'M14 frontend lint/build/tests','AUDIT':'M20 production dependency audit','COMPOSE':'M16 Compose validation','IMAGES':'M16 production image builds','STACK':'M16 full-stack runtime smoke','OBSERVABILITY':'M15 health/metrics access contract','PERFORMANCE':'M19 k6 performance smoke','DOCUMENTS':'M17/M18/M20 CI, AWS, and security evidence'}
           rows='\n'.join(f"| {labels[n]} | **{os.environ[n].upper()}** |" for n in names)
-          Path('milestones-14-20-results.md').write_text(f'''# Milestones 14-20 verification\n\n- Source commit: `{os.environ['GITHUB_SHA']}`\n- Completed: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\n- Runner: GitHub-hosted Ubuntu with Java 21, Node 22, Docker and k6\n\n| Gate | Outcome |\n|---|---|\n{rows}\n\nAll gates must be SUCCESS before Milestones 14-20 are considered verified.\n''')
+          diagnostics=[]
+          for name,path in [('dependency audit','audit.log'),('full-stack smoke','stack.log'),('performance smoke','performance.log')]:
+              p=Path(path)
+              if p.exists():
+                  lines=p.read_text(errors='replace').splitlines()[-60:]
+                  diagnostics.append(f'## {name} output (last 60 lines)\n\n```text\n'+ '\n'.join(lines) +'\n```')
+          Path('milestones-14-20-results.md').write_text(f'''# Milestones 14-20 verification\n\n- Source commit: `{os.environ['GITHUB_SHA']}`\n- Completed: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\n- Runner: GitHub-hosted Ubuntu with Java 21, Node 22, Docker and k6\n\n| Gate | Outcome |\n|---|---|\n{rows}\n\nAll gates must be SUCCESS before Milestones 14-20 are considered verified.\n\n'''+'\n\n'.join(diagnostics)+'\n')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com

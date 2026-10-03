@@ -68,7 +68,7 @@ services:
       NOTIFICATIONS_ENABLED: "true"
       EMAIL_ENABLED: "true"
     ports: ["127.0.0.1:${BACKEND_PORT:-8080}:8080"]
-    healthcheck: {test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"], interval: 10s, timeout: 3s, retries: 18, start_period: 40s}
+    healthcheck: {test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"], interval: 10s, timeout: 3s, retries: 18, start_period: 40s}
     security_opt: ["no-new-privileges:true"]
   frontend:
     build: {context: ./frontend}
