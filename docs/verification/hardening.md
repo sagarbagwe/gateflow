@@ -27,7 +27,7 @@ captures local email only. Hosted demo and main remain unchanged and are not cer
 | Actual API | Final patched JAR: 53 successful HTTP checks including signup, RBAC, publish, submit/replay, approval, search, audit, async notifications/preferences/read, activity, logout/login/revocation. |
 | Negative API boundaries | Anonymous API/metrics denied; missing-CSRF write denied; cross-tenant requests concealed with 404; missing audit/role-management permission denied; conflicting idempotency payload and stale duplicate decision rejected. Repeated invalid login reached 429. |
 | Database role | Non-owner `gateflow_app` runs the complete lifecycle. Seven forbidden direct operations rejected: audit UPDATE/DELETE/TRUNCATE, table ALTER, schema CREATE, permission-catalog DELETE, Flyway-history SELECT. |
-| Async resilience | Redis stopped: business requests still succeeded with DB fallback. Broker stopped: business writes still committed, eight unpublished outbox records remained durable; after restart the pending count returned to zero. These probes ran before the final dependency artifact; the final artifact's normal async lifecycle also passed. |
+| Async resilience | Redis stopped: business requests still succeeded with DB fallback. Broker stopped: business writes still committed, eight unpublished outbox records remained durable; after restart the pending count returned to zero. These probes were repeated on the final patched backend with zero business errors; its normal async lifecycle also passed. |
 | Recovery | Final separate-database pg_dump/pg_restore drill passed schema/count checks for 10 users, 10 organizations, 721 requests, 720 decisions, 1,480 audit rows and 11 successful migrations. A real restored audit-row update was rejected. Coarse dump/restore elapsed time was one second, not a production RTO. |
 | Application images | Trivy 0.75.0 final backend/frontend scans: zero HIGH/CRITICAL findings. Includes unfixed advisories; no blanket ignore applied. Other severities, infrastructure and future advisories are separate concerns. |
 | Supply chain | Digest-pinned refreshed builder/runtime images; pinned fixed Nginx runtime packages; patched Jackson, RabbitMQ client, Netty, Tomcat and PostgreSQL JDBC lines; runtime CycloneDX SBOM retained. |
@@ -46,7 +46,7 @@ scans and production npm audit provide their own distinct dependency evidence.
 
 - **13–16:** current backend CI, frontend regression checks, real isolated-stack/browser flow,
   health/security boundaries and Docker runtime reverified. No cloud telemetry certification.
-- **17:** existing CI passes; extended real-stack/browser/restore/security pipeline is prepared
+- **17:** existing build/test CI passes, but the separate CodeQL workflow fails; extended real-stack/browser/restore/security pipeline is prepared
   and syntax-checked, but workflow installation is blocked by GitHub workflow-write 403.
 - **19:** basic authenticated performance measurement and query review complete. No fabricated
   optimization claim. Representative staging capacity/soak/saturation testing remains a release gate.
@@ -55,7 +55,7 @@ scans and production npm audit provide their own distinct dependency evidence.
 
 ## Remaining production/operator gates — do not merge/promote as certified
 
-1. Grant authorized workflow-write access, install and run the pending pipeline, verify required
+1. Grant authorized workflow-write access, install and run both pending CI/CodeQL workflows (active CodeQL fails), verify required
    checks/branch protection and review latest branch CI before a human-approved merge.
 2. Provision/review the actual deployment environment: ingress TLS/HSTS, secure cookies,
    secret storage/rotation, runtime DB/IAM least privilege, network isolation and rollback.

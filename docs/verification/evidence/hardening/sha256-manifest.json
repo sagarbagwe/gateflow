@@ -12,5 +12,8 @@
   "backend-runtime-sbom.json": "c19a3b00d289783d4476d01ac8c01706fccef85d4b8da0117a70cf03d3ec1d38",
   "patched-artifact.json": "b201d2867967197d4589badfd284eb33409d72f263f3d80fa4a92e51443d83b4",
   "performance-summary.json": "bd77db64279c26cd98702acba2a8eef4a51b2c3d70efa88548c4bcc72d64a8d3",
-  "npm-audit-summary.json": "ae9c77ac7c6722a1ebed9bc1dc222bb493f49575c461bec08a1a9d47172e9532"
+  "npm-audit-summary.json": "ae9c77ac7c6722a1ebed9bc1dc222bb493f49575c461bec08a1a9d47172e9532",
+  "k6-final-redis-outage.json": "93c79742deefaf67936a2c1cb3c6dbf973b16126efe0222e8651144a319d94e7",
+  "k6-final-broker-outage.json": "9d204601ccf9174086b4cf52f48e27f5c5fe7cad2b4385869e1c1fc9db152f8f",
+  "final-failure-recovery.json": "15238b34e9b1656776a6f121c03e32967966b0ea7ac7870403e3a24fc4a41ddc"
 }

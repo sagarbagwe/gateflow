@@ -13,7 +13,7 @@ All new changes are isolated on `hardening/m17-m20-verified` in
 remaining production/operator gates. Current application images passed HIGH/CRITICAL scans,
 and the real approval flow, non-owner database runtime, local restore and authenticated
 business workload were tested. The extended CI installation is still blocked by
-GitHub workflow-write permission. This is not production certification.
+GitHub workflow-write permission; the active CodeQL workflow also fails and its correction is pending. This is not production certification.
 
 ## Problem
 

@@ -25,3 +25,18 @@ Application-image scans cover backend/frontend. Local database/cache/broker/mail
 separate infrastructure review; do not describe a green application scan as a clean entire stack.
 The local PostgreSQL bookworm image scan has unresolved advisories. Production RDS/ElastiCache
 are managed-service designs, not proof those hosted services have been provisioned or reviewed.
+
+## Existing CodeQL failure (merge blocker)
+
+[Run 37141719211](https://github.com/sagarbagwe/gateflow/actions/runs/37141719211)
+failed: Java autobuild returned exit 1, and init warned about an unexpected
+`javascript-typescript` input. In the active YAML, the flow-style value
+`with: {languages: java-kotlin,javascript-typescript}` incorrectly creates a second
+mapping key rather than a two-language string.
+
+`codeql-workflow.pending.yml` replaces that with separate Java and TypeScript matrix
+jobs, supported SHA-pinned CodeQL v4, explicit Java 21 setup and the same Maven backend
+build path used by passing CI, plus no-build TypeScript analysis. Both pending workflows
+passed actionlint 1.7.12, but neither has been installed or executed as a corrected workflow.
+Autobuild failure is not a successful security analysis; uploading failure diagnostics is
+not a clean scan. Workflow-write access and a green corrected run are required before merge.
