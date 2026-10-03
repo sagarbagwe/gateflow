@@ -97,7 +97,9 @@ public class SecurityConfig {
                                                                 "Request is not allowed")))
                 .authorizeHttpRequests(
                         config ->
-                                config.requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf")
+                                config.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf")
                                         .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.POST,
@@ -116,3 +118,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+

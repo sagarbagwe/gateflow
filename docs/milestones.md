@@ -1,8 +1,6 @@
 # Incremental delivery plan
 
-Milestones 1–13 are implemented and verified. The user approved all remaining
-milestones; delivery still proceeds sequentially with verification at each step. Each major milestone requires user
-approval after implementation, checks, fixes, and documentation. Tests/security
+Milestones 1–20 are delivered. Milestones 1–13 retain their verified backend evidence. Milestones 14–20 add the accessible SPA, observability, full-stack containers, CI/security automation, AWS/recovery design, a repeatable performance plan, and the final threat review. Frontend lint/build/tests and static Compose validation passed in the implementation workspace; full container and CI execution remains host-side evidence, not a production claim. Tests/security
 invariants start with their features rather than waiting for later review phases.
 
 | # | Milestone | Exit evidence |
@@ -38,3 +36,4 @@ previous security evidence and need new tests.
 `docs/architecture/lld.md`, detailed API/schema docs, security review, performance
 reports, and `docs/interview/` are added when their contents can reflect actual
 implementation. Avoid empty documents pretending those milestones are complete.
+

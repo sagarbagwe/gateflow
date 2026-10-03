@@ -23,3 +23,6 @@ __pycache__/
 *.log
 # Generated exports
 *.zip
+
+
+*.tsbuildinfo

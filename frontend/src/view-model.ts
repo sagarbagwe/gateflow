@@ -1,0 +1,1 @@
+export function normalizeItems(value:unknown):unknown[]{if(!value||typeof value!=='object')return[];const v=value as Record<string,unknown>;for(const key of ['items','content','results'])if(Array.isArray(v[key]))return v[key] as unknown[];return[]}
