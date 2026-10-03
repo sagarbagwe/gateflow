@@ -49,13 +49,22 @@ const json = (
 ): RequestInit => ({ method, body: JSON.stringify(body), headers });
 export const auth = {
   me: () => api<User>("/api/v1/auth/me"),
-  login: (email: string, password: string) =>
-    api<User>("/api/v1/auth/login", json("POST", { email, password })),
-  signup: (email: string, password: string, displayName: string) =>
-    api<User>(
+  login: async (email: string, password: string) => {
+    const user = await api<User>(
+      "/api/v1/auth/login",
+      json("POST", { email, password }),
+    );
+    csrf = undefined;
+    return user;
+  },
+  signup: async (email: string, password: string, displayName: string) => {
+    const user = await api<User>(
       "/api/v1/auth/signup",
       json("POST", { email, password, displayName }),
-    ),
+    );
+    csrf = undefined;
+    return user;
+  },
   logout: async () => {
     try {
       await api<void>("/api/v1/auth/logout", { method: "POST" });
