@@ -2,8 +2,8 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestones 1–20 delivered to the repository.**
-> Core backend behavior remains covered by the existing 313-test baseline. The React UI, production dependency audit, container image builds, full Docker stack, health/metrics contract, and k6 smoke workload passed on a GitHub-hosted Docker runner. No production cloud deployment was performed.
+> **Status: backend foundation and repository hardening implemented; production release remains gated.**
+> Core backend behavior remains covered by the existing 313-test baseline. The React UI, production dependency audit, container image builds, full Docker stack, health/metrics contract, and k6 smoke workload passed on a GitHub-hosted Docker runner. No AWS production deployment was performed; the hosted demo is not production certification.
 
 ## Problem
 
@@ -48,7 +48,7 @@ worker deployments from the same artifact as a later scaling option.
 
 ```mermaid
 flowchart LR
-    Browser[React UI - planned] --> API[Spring Boot auth, RBAC, workflows and search]
+    Browser[React UI] --> API[Spring Boot auth, RBAC, workflows and search]
     API --> DB[(PostgreSQL)]
     API -- published policy read cache --> Redis[(Redis)]
     DB -- transactional outbox relay --> Queue[RabbitMQ]
@@ -64,18 +64,18 @@ See [system design](docs/architecture/system-design.md).
 
 ## Tech Stack
 
-| Technology | Purpose | Current status |
-| --- | --- | --- |
-| Java 21, Spring Boot 3.5.16, Maven | Backend runtime and build | Authentication, RBAC and workflow implemented |
-| Spring Security | Session authentication, CSRF, authenticated endpoint gate | Implemented with tenant and request-specific policies |
-| JPA/Hibernate, JDBC, PostgreSQL 17 | Relational identity/policy, transactional commands and durable receipts | Implemented core/auth schema |
-| Flyway OSS 13.8.1 | Explicit schema migrations | Implemented via digest-pinned tools container |
-| Redis 7.4.11, Spring Data Redis/Lettuce | Published-policy read cache only; auth rate limits remain PostgreSQL | Milestone 7 implemented |
-| RabbitMQ 4.2.9, Spring AMQP | Independent activity/notification subscribers, confirms/retries/DLQs | Implemented |
-| Spring Mail/Jakarta Mail, local Mailpit 1.31.3 | SMTP provider adapter and safe local capture | M9 implemented; no external mailbox contacted |
-| React 19, TypeScript, Vite | Responsive authentication, request, inbox and notification UI | Implemented |
-| JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
-| Docker Compose, GitHub Actions | Full local stack and CI | Implemented; production deploy intentionally disabled |
+| Technology                                     | Purpose                                                                 | Current status                                                  |
+| ---------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Java 21, Spring Boot 3.5.16, Maven             | Backend runtime and build                                               | Authentication, RBAC and workflow implemented                   |
+| Spring Security                                | Session authentication, CSRF, authenticated endpoint gate               | Implemented with tenant and request-specific policies           |
+| JPA/Hibernate, JDBC, PostgreSQL 17             | Relational identity/policy, transactional commands and durable receipts | Implemented core/auth schema                                    |
+| Flyway OSS 13.8.1                              | Explicit schema migrations                                              | Implemented via digest-pinned tools container                   |
+| Redis 7.4.11, Spring Data Redis/Lettuce        | Published-policy read cache only; auth rate limits remain PostgreSQL    | Milestone 7 implemented                                         |
+| RabbitMQ 4.2.9, Spring AMQP                    | Independent activity/notification subscribers, confirms/retries/DLQs    | Implemented                                                     |
+| Spring Mail/Jakarta Mail, local Mailpit 1.31.3 | SMTP provider adapter and safe local capture                            | M9 implemented; no external mailbox contacted                   |
+| React 19, TypeScript, Vite                     | Responsive authentication, request, inbox and notification UI           | Implemented                                                     |
+| JUnit, Mockito, Testcontainers                 | Unit and real HTTP/database verification                                | Unit, HTTP/database, and RBAC race tests; evidence linked below |
+| Docker Compose, GitHub Actions                 | Full local stack and CI                                                 | Implemented; production deploy intentionally disabled           |
 
 Build dependency versions are pinned by the POM/Boot dependency management.
 No comprehensive vulnerability or production-capacity claim is made yet.
@@ -106,7 +106,7 @@ filter semantics and cursor consistency/security limits.
 [Activity API](docs/api/activity.md) documents the eventually consistent request timeline.
 [Notification API](docs/api/notifications.md) documents private inbox/count/read/preferences;
 [email delivery contract](docs/notifications/delivery.md) explains retries and SMTP uncertainty.
-Full OpenAPI review is Milestone 12.
+OpenAPI is implemented and disabled by default; enable it only for authenticated internal use.
 
 ## Local Development
 
@@ -143,7 +143,7 @@ Run `bash scripts/test-db.sh` for real database integration verification: fresh
 migrations, validation, repeat-migrate no-op, SQL integrity assertions, checksum
 rejection, failed-migration rollback/revalidation, and automatic disposable-database
 cleanup. Application/security and multi-connection RBAC/workflow race tests are now
-implemented; Milestone 13 expands critical-workflow coverage.
+implemented; historical Milestone 13 evidence records critical-workflow coverage.
 
 Real PostgreSQL runtime verification has also passed in the agent's Linux sandbox:
 healthy startup, SQL smoke query, host TCP password authentication, wrong-password
@@ -176,8 +176,7 @@ updates require explicit review and migration tests. Mailpit is a digest-pinned,
 unprivileged/read-only, bounded ephemeral mail capture sink with no relay configured.
 Flyway is a one-shot tools
 profile, not a long-running application. A one-node broker is not highly available.
-Application Dockerfiles and a full local
-stack are intentionally deferred. Production image scanning is still future work.
+Backend/frontend Dockerfiles and the full local stack are implemented. A prepared CI update starts an isolated Compose environment and exercises an authenticated approval lifecycle; applying it is blocked by GitHub workflow-write permission. Production image scanning remains a release requirement.
 
 ## CI/CD
 
@@ -234,9 +233,10 @@ The responsive SPA implements signup/login, organization selection, request sear
 
 ## Demo
 
-No hosted demo or paid cloud deployment exists. The agent started the packaged backend and verified auth,
-approval lifecycles, full-text filters and cursor navigation against PostgreSQL. Disposable business fixtures were removed;
-there is no persistent publicly hosted service or browser UI yet.
+[GateFlow hosted demo](https://gateflow-jade.vercel.app/). Public login/signup screens
+and same-origin CSRF/protected API responses were observed during the audit. This
+is not a claim that every authenticated production flow, deployment revision,
+cloud recovery objective, or production email provider has been verified.
 
 ## Engineering Challenges
 
@@ -247,7 +247,7 @@ shared detail/list visibility, tied-time pagination and fresh cursor authorizati
 Implemented challenges: atomic outbox, independent deduplicated consumers,
 recipient/access drift, preference version races, cache fallback, and SMTP acceptance
 with a failed database marker. Terminal email reconciliation, verified-address
-provider setup, retention, monitoring and measured load remain future work.
+provider setup, retention, recovery drills and representative measured load remain release work; basic observability is implemented.
 
 ## Contributing and License
 
@@ -285,10 +285,20 @@ and session-protected when enabled.
 [Testing strategy](docs/testing/strategy.md); packaged API E2E is reproducible with
 `bash scripts/test-e2e.sh`. JaCoCo reports are generated during Maven verify.
 
-
 ## Production readiness deliverables
 
 - [Observability signals and runbook](docs/observability/runbook.md)
 - [AWS architecture, recovery, cost, and rollout](docs/aws/architecture.md)
 - [Performance baseline and acceptance gates](docs/performance/baseline.md)
 - [Security threat review and release checklist](docs/security/review.md)
+
+## Audit remediation and interview preparation
+
+[Changes and verification limits](docs/verification/audit-remediation.md),
+[production release blockers](docs/security/release-gates.md), and
+[interview explanations](docs/interview/README.md).
+Frontend now includes bounded request/inbox/notification navigation, explicit search
+filters, notification read/preferences controls, versioned role/member management,
+sequential policy draft editing/publication, request activity/reassignment and
+read-only audit browsing. Existing-version inspection still requires a version UUID;
+there is no backend version-directory endpoint. Signup is not email verification.

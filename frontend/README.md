@@ -34,9 +34,11 @@ npm run test:browser
 
 The browser suite exercises production-built assets with **mocked API responses**;
 it checks interactions, CSP-compatible rendering, desktop/mobile layouts, and errors.
-It is not evidence of live authenticated backend correctness. The isolated Docker CI
+It is not evidence of live authenticated backend correctness. The prepared isolated Docker CI
 job uses `scripts/verify-browser-flow.py` against real API/database/broker services.
 
 Vite proxies `/api` to localhost:8080. Production Nginx proxies to the Compose backend;
 Vercel retains its existing Railway rewrite. Vercel headers are configured in
 `vercel.json`; HTTPS ingress must deploy them before live remediation is claimed.
+
+The active CI workflow update requires GitHub workflow-write permission. The exact pending configuration is in `docs/ci/ci-workflow.pending.yml`.
