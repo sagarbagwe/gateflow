@@ -1,4 +1,5 @@
 name: Backend and database verification
+# Independent verification run 2
 on:
   push:
     branches: [verify-backend-database]
@@ -16,7 +17,7 @@ jobs:
       - name: Configure isolated test credentials
         run: |
           cp .env.example .env
-          sed -i 's/replace-with-a-unique-local-password/ci-db-7Yv2G9xP4m/; s/replace-with-a-unique-redis-password/ci-redis-9Ka3P6vR2n/; s/replace-with-a-unique-rabbitmq-password/ci-rabbit-5Qm8W2zL7c/' .env
+          sed -i 's/replace-with-a-unique-local-password/ci-db-run2-8Hv3K6xP9m/; s/replace-with-a-unique-redis-password/ci-redis-run2-4Qa7N2wL5c/; s/replace-with-a-unique-rabbitmq-password/ci-rabbit-run2-6Tm9R3zV8b/' .env
       - name: Run full backend suite
         id: backend
         continue-on-error: true
@@ -29,7 +30,7 @@ jobs:
         run: |
           set -o pipefail
           bash scripts/test-db.sh 2>&1 | tee database-test.log
-      - name: Record evidence whether pass or fail
+      - name: Record second-run evidence
         if: always()
         env:
           BACKEND_OUTCOME: ${{ steps.backend.outcome }}
@@ -45,12 +46,13 @@ jobs:
           passes=sum(1 for line in db.splitlines() if line.startswith('PASS:'))
           now=datetime.datetime.now(datetime.timezone.utc).isoformat()
           b=os.environ['BACKEND_OUTCOME']; d=os.environ['DATABASE_OUTCOME']
-          Path('verification-results.md').write_text(f'''# Backend and database verification\n\n- Commit tested: `{os.environ['GITHUB_SHA']}`\n- Completed: {now}\n- Backend outcome: **{b.upper()}** — {tests} tests, {failures} failures, {errors} errors, {skipped} skipped\n- Database outcome: **{d.upper()}** — {passes} reported PASS checks\n- Runner: GitHub-hosted Ubuntu, Java 21, Docker/Testcontainers\n\nA merge is allowed only when both outcomes are SUCCESS and failures/errors/skips are zero.\n''')
+          old=Path('verification-results.md').read_text() if Path('verification-results.md').exists() else '# Backend and database verification\n'
+          Path('verification-results.md').write_text(old+f'''\n## Independent run 2\n\n- Commit tested: `{os.environ['GITHUB_SHA']}`\n- Completed: {now}\n- Backend outcome: **{b.upper()}** — {tests} tests, {failures} failures, {errors} errors, {skipped} skipped\n- Database outcome: **{d.upper()}** — {passes} reported PASS checks\n- Runner: fresh GitHub-hosted Ubuntu, Java 21, Docker/Testcontainers\n''')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add verification-results.md
-          git commit -m 'test: record backend and database verification [skip ci]'
+          git commit -m 'test: record independent verification run 2 [skip ci]'
           git push
       - name: Enforce passing suites
         if: always()
