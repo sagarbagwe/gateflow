@@ -8,38 +8,53 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+        with: {distribution: temurin, java-version: '21', cache: maven}
       - name: Configure isolated test credentials
         run: |
           cp .env.example .env
           sed -i 's/replace-with-a-unique-local-password/ci-db-7Yv2G9xP4m/; s/replace-with-a-unique-redis-password/ci-redis-9Ka3P6vR2n/; s/replace-with-a-unique-rabbitmq-password/ci-rabbit-5Qm8W2zL7c/' .env
-      - name: Full backend suite
-        run: bash scripts/test-backend.sh | tee backend-test.log
-      - name: Full database suite
-        run: bash scripts/test-db.sh | tee database-test.log
-      - name: Record verified evidence
+      - name: Run full backend suite
+        id: backend
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bash scripts/test-backend.sh 2>&1 | tee backend-test.log
+      - name: Run full database suite
+        id: database
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bash scripts/test-db.sh 2>&1 | tee database-test.log
+      - name: Record evidence whether pass or fail
+        if: always()
+        env:
+          BACKEND_OUTCOME: ${{ steps.backend.outcome }}
+          DATABASE_OUTCOME: ${{ steps.database.outcome }}
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import datetime, xml.etree.ElementTree as ET
+          import datetime, os, xml.etree.ElementTree as ET
           tests=failures=errors=skipped=0
           for p in Path('backend/target/surefire-reports').glob('TEST-*.xml'):
-              r=ET.parse(p).getroot()
-              tests += int(r.attrib.get('tests',0)); failures += int(r.attrib.get('failures',0)); errors += int(r.attrib.get('errors',0)); skipped += int(r.attrib.get('skipped',0))
-          db=Path('database-test.log').read_text()
+              r=ET.parse(p).getroot(); tests+=int(r.attrib.get('tests',0)); failures+=int(r.attrib.get('failures',0)); errors+=int(r.attrib.get('errors',0)); skipped+=int(r.attrib.get('skipped',0))
+          db=Path('database-test.log').read_text(errors='replace') if Path('database-test.log').exists() else ''
           passes=sum(1 for line in db.splitlines() if line.startswith('PASS:'))
           now=datetime.datetime.now(datetime.timezone.utc).isoformat()
-          Path('verification-results.md').write_text(f'''# Backend and database verification\n\n- Commit tested: `{__import__('os').environ['GITHUB_SHA']}`\n- Completed: {now}\n- Backend: **PASS** — {tests} tests, {failures} failures, {errors} errors, {skipped} skipped\n- Database: **PASS** — {passes} reported checks; fresh migration, validation, repeat no-op, integrity, checksum rejection, failed-migration rollback, and cleanup completed\n- Runner: GitHub-hosted Ubuntu, Java 21, Docker/Testcontainers\n''')
+          b=os.environ['BACKEND_OUTCOME']; d=os.environ['DATABASE_OUTCOME']
+          Path('verification-results.md').write_text(f'''# Backend and database verification\n\n- Commit tested: `{os.environ['GITHUB_SHA']}`\n- Completed: {now}\n- Backend outcome: **{b.upper()}** — {tests} tests, {failures} failures, {errors} errors, {skipped} skipped\n- Database outcome: **{d.upper()}** — {passes} reported PASS checks\n- Runner: GitHub-hosted Ubuntu, Java 21, Docker/Testcontainers\n\nA merge is allowed only when both outcomes are SUCCESS and failures/errors/skips are zero.\n''')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add verification-results.md
           git commit -m 'test: record backend and database verification [skip ci]'
           git push
+      - name: Enforce passing suites
+        if: always()
+        env:
+          BACKEND_OUTCOME: ${{ steps.backend.outcome }}
+          DATABASE_OUTCOME: ${{ steps.database.outcome }}
+        run: test "$BACKEND_OUTCOME" = success -a "$DATABASE_OUTCOME" = success
