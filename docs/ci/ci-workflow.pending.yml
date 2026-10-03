@@ -2,7 +2,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "hardening/**"]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -63,28 +64,53 @@ jobs:
           }
           text=pathlib.Path('.env.example').read_text()
           for old,new in replacements.items(): text=text.replace(old,new)
+          text += '\nDATABASE_APP_PASSWORD=' + secrets.token_hex(24) + '\n'
           pathlib.Path('.env').write_text(text)
           pathlib.Path('.env').chmod(0o600)
           PY
       - run: docker compose config --quiet
       - run: bash scripts/test-stack.sh
+      - name: Provision and verify least-privilege runtime credentials
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess
+          env=dict(line.split('=',1) for line in pathlib.Path('.env').read_text().splitlines() if line and not line.startswith('#'))
+          sql="\\set runtime_password '"+env['DATABASE_APP_PASSWORD']+"'\n\\set database_name '"+env['POSTGRES_DB']+"'\n"+pathlib.Path('scripts/database/provision-runtime-role.sql').read_text()
+          subprocess.run(['docker','compose','exec','-T','postgres','psql','-X','-q','-v','ON_ERROR_STOP=1','-U',env['POSTGRES_USER'],'-d',env['POSTGRES_DB']],input=sql,text=True,check=True)
+          subprocess.run(['docker','compose','exec','-T','postgres','psql','-X','-q','-v','ON_ERROR_STOP=1','-U',env['POSTGRES_USER'],'-d',env['POSTGRES_DB']],input=pathlib.Path('scripts/database/verify-runtime-role.sql').read_text(),text=True,check=True)
+          PY
+          docker compose -f docker-compose.yml -f docker-compose.runtime-role.yml up -d --no-build --wait --wait-timeout 180
       - name: Verify authenticated approval lifecycle on disposable stack
+        env:
+          GATEFLOW_LOAD_FIXTURE: .load-fixture.json
         run: python3 scripts/verify-browser-flow.py
-      - name: Run repeatable transport smoke workload
+      - name: Real backend browser navigation
+        run: |
+          npm --prefix frontend ci --ignore-scripts --no-audit
+          cd frontend
+          npx playwright install --with-deps chromium
+          GATEFLOW_LOAD_FIXTURE="$GITHUB_WORKSPACE/.load-fixture.json" npm run test:browser:live
+      - name: Run authenticated business smoke workload
         run: |
           mkdir -p verification
-          docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD:/work" -w /work -e BASE_URL \
-            grafana/k6:1.3.0 run --summary-export=/work/verification/k6-summary.json /work/scripts/performance-smoke.js
+          docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD:/work" -w /work -e GATEFLOW_DISPOSABLE_STACK -e GATEFLOW_LOAD_FIXTURE=/work/.load-fixture.json \
+            grafana/k6:1.3.0 run --summary-export=/work/verification/k6-business-summary.json /work/scripts/performance-business.js
+      - name: Disposable backup restore drill
+        run: bash scripts/recovery-drill.sh
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with: { version: "v0.75.0", cache: true }
+      - name: Application image and source-secret gates
+        run: bash scripts/security-scan.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           {
-            name: transport-smoke-evidence,
-            path: verification/k6-summary.json,
+            name: business-smoke-evidence,
+            path: verification/k6-business-summary.json,
             if-no-files-found: ignore,
           }
       - name: Tear down only this disposable stack
         if: always()
         run: |
-          trap 'rm -f .env' EXIT
+          trap 'rm -f .env .load-fixture.json' EXIT
           docker compose down --volumes --remove-orphans

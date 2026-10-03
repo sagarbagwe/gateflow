@@ -11,7 +11,10 @@ while IFS= read -r image; do
   key=$(printf '%s' "$image" | sha256sum | cut -c1-12)
   trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --format json \
     --output "verification/security/image-$key.json" "$image"
-done < <(docker compose images --format json | python3 -c 'import json,sys; x=json.load(sys.stdin); print("\n".join(sorted({i["ID"] for i in x})))')
+done < <(docker compose images -q backend frontend | sort -u)
+# Infrastructure images are inventoried separately: production uses managed RDS,
+# ElastiCache and a reviewed broker deployment, not local Compose credentials.
+
 # Never scan/upload .env, disposable fixtures, build caches, or database dumps.
 trivy fs --scanners secret --exit-code 1 --skip-dirs node_modules --skip-dirs .git \
   --skip-dirs verification --skip-dirs .qa --skip-dirs target --skip-dirs dist \

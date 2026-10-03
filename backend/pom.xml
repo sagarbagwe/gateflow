@@ -16,7 +16,7 @@
     <flyway.version>13.8.1</flyway.version>
     <!-- Compatible patch lines; verified against the runtime image scan. -->
     <jackson-bom.version>2.21.7</jackson-bom.version>
-    <amqp-client.version>5.34.0</amqp-client.version>
+    <rabbit-amqp-client.version>5.34.0</rabbit-amqp-client.version>
     <netty.version>4.1.137.Final</netty.version>
     <tomcat.version>10.1.60</tomcat.version>
     <postgresql.version>42.7.12</postgresql.version>
