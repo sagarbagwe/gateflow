@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
-    "test:browser": "node tests/browser-flow.mjs"
+    "test:browser": "node tests/browser-flow.mjs",
+    "test:browser:live": "node tests/live-flow.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.3.4",
