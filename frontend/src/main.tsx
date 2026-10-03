@@ -58,19 +58,24 @@ function App() {
     [selected, setSelected] = useState<any>(null),
     [roles, setRoles] = useState<any[]>([]),
     [members, setMembers] = useState<any[]>([]),
-    [definitions, setDefinitions] = useState<any[]>([]);
+    [definitions, setDefinitions] = useState<any[]>([]),
+    [access, setAccess] = useState<any>(null);
+  async function activateUser(u: User) {
+    setUser(u);
+    const mine = await organizations.mine();
+    const first = rows(mine)[0] as any;
+    if (first) {
+      setOrg(first.id);
+      localStorage.setItem("gateflow.org", first.id);
+    } else {
+      setOrg("");
+      setView("setup");
+    }
+  }
   useEffect(() => {
     getCsrf()
       .then(() => auth.me())
-      .then(async (u) => {
-        setUser(u);
-        const mine = await organizations.mine();
-        const first = rows(mine)[0] as any;
-        if (!org && first) {
-          setOrg(first.id);
-          localStorage.setItem("gateflow.org", first.id);
-        }
-      })
+      .then(activateUser)
       .catch(() => {})
       .finally(() => setBoot(false));
   }, []);
@@ -115,8 +120,14 @@ function App() {
   }
   useEffect(() => {
     if (user && org) {
+      void organizations
+        .access(org)
+        .then(setAccess)
+        .catch(() => setAccess(null));
       if (view === "setup") void loadSetup();
       else void load(view);
+    } else {
+      setAccess(null);
     }
   }, [view, user, org]);
   async function openItem(id: string) {
@@ -134,7 +145,7 @@ function App() {
         <p>Opening your workspace…</p>
       </main>
     );
-  if (!user) return <Auth onUser={setUser} />;
+  if (!user) return <Auth onUser={activateUser} />;
   const items = rows(data),
     nav: [View, string][] = [
       ["requests", "All requests"],
@@ -175,6 +186,13 @@ function App() {
                 localStorage.removeItem("gateflow.org");
                 setUser(null);
                 setOrg("");
+                setAccess(null);
+                setData(null);
+                setRoles([]);
+                setMembers([]);
+                setDefinitions([]);
+                setSelected(null);
+                setView("requests");
               })
             }
           >
@@ -199,7 +217,9 @@ function App() {
           {view !== "setup" && (
             <button
               className="primary"
-              disabled={!org}
+              disabled={
+                !org || !access?.permissions?.includes("REQUEST_SUBMIT")
+              }
               onClick={() => setRequestOpen(true)}
             >
               + New request
@@ -349,6 +369,7 @@ function App() {
           <RequestDetail
             org={org}
             request={selected}
+            membershipId={access?.membershipId}
             setRequest={setSelected}
             onClose={() => setSelected(null)}
             onChanged={() => void load(view)}
@@ -672,6 +693,7 @@ function NewRequest({
 function RequestDetail({
   org,
   request,
+  membershipId,
   setRequest,
   onClose,
   onChanged,
@@ -679,6 +701,7 @@ function RequestDetail({
 }: {
   org: string;
   request: any;
+  membershipId?: string;
   setRequest: (r: any) => void;
   onClose: () => void;
   onChanged: () => void;
@@ -726,7 +749,7 @@ function RequestDetail({
             <span>{s.state}</span>
           </div>
         ))}
-        {active && (
+        {active?.assignedMembershipId === membershipId && (
           <>
             <label>
               Decision comment
@@ -773,22 +796,23 @@ function RequestDetail({
             </div>
           </>
         )}
-        {request.state === "IN_REVIEW" && (
-          <button
-            onClick={() =>
-              void act(() =>
-                requests.withdraw(org, request.id, request.version),
-              )
-            }
-          >
-            Withdraw request
-          </button>
-        )}
+        {request.state === "IN_REVIEW" &&
+          request.requesterMembershipId === membershipId && (
+            <button
+              onClick={() =>
+                void act(() =>
+                  requests.withdraw(org, request.id, request.version),
+                )
+              }
+            >
+              Withdraw request
+            </button>
+          )}
       </div>
     </Modal>
   );
 }
-function Auth({ onUser }: { onUser: (u: User) => void }) {
+function Auth({ onUser }: { onUser: (u: User) => void | Promise<void> }) {
   const [signup, setSignup] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<ApiError | null>(null);
@@ -798,7 +822,7 @@ function Auth({ onUser }: { onUser: (u: User) => void }) {
     setError(null);
     const f = new FormData(e.currentTarget);
     try {
-      onUser(
+      await onUser(
         signup
           ? await auth.signup(
               String(f.get("email")),
