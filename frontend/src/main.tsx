@@ -1,5 +1,4 @@
-import React, { FormEvent, useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import {
   ApiError,
   auth,
@@ -8,11 +7,15 @@ import {
   organizations,
   requests,
   User,
-  workflows,
 } from "./api";
 import "./styles.css";
+import { CommandIntent } from "./command-intent";
+import { AsyncScope } from "./async-scope";
+import { Preferences } from "./preferences";
+import { WorkspaceAdmin, AuditLog } from "./admin";
+import { Activity } from "./activity";
 import { normalizeItems as rows } from "./view-model";
-type View = "requests" | "inbox" | "notifications" | "setup";
+type View = "requests" | "inbox" | "notifications" | "setup" | "audit";
 function ErrorBox({ error }: { error: ApiError | null }) {
   return error ? (
     <div className="alert" role="alert">
@@ -31,8 +34,50 @@ function Modal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const alreadyLocked = document.body.classList.contains("modal-open");
+    document.body.classList.add("modal-open");
+    const selector =
+      'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]';
+    dialog.current?.querySelector<HTMLElement>(selector)?.focus();
+    function keyboard(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close.current();
+      }
+      if (e.key !== "Tab") return;
+      const nodes = [
+        ...(dialog.current?.querySelectorAll<HTMLElement>(selector) || []),
+      ];
+      const first = nodes[0],
+        last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.removeEventListener("keydown", keyboard);
+      if (!alreadyLocked) document.body.classList.remove("modal-open");
+      previous?.focus();
+    };
+  }, []);
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      ref={dialog}
+      className="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <section>
         <header>
           <h2>{title}</h2>
@@ -45,7 +90,46 @@ function Modal({
     </div>
   );
 }
-function App() {
+export function App() {
+  const scope = useRef(new AsyncScope());
+  const currentOrg = useRef("");
+  const workspaceEpoch = useRef(0);
+  const renderedEpoch = workspaceEpoch.current;
+  const inWorkspace = () => workspaceEpoch.current === renderedEpoch;
+  const [offset, setOffset] = useState(0);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [applied, setApplied] = useState<{
+    q: string;
+    filters: Record<string, string>;
+  }>({ q: "", filters: {} });
+  const [signingOut, setSigningOut] = useState(false);
+  function resetWorkspace(next: string) {
+    scope.current.invalidate();
+    workspaceEpoch.current++;
+    currentOrg.current = next;
+    setOrg(next);
+    setData(null);
+    setAccess(null);
+    setSelected(null);
+    setRequestOpen(false);
+    setError(null);
+    setOffset(0);
+    setFilters({});
+    setQ("");
+    setApplied({ q: "", filters: {} });
+    setLoading(false);
+    if (next) localStorage.setItem("gateflow.org", next);
+    else localStorage.removeItem("gateflow.org");
+  }
+  function chooseView(next: View) {
+    if (next === view) return;
+    scope.current.invalidate();
+    setData(null);
+    setSelected(null);
+    setError(null);
+    setOffset(0);
+    setView(next);
+  }
   const [user, setUser] = useState<User | null>(null),
     [boot, setBoot] = useState(true),
     [error, setError] = useState<ApiError | null>(null),
@@ -56,86 +140,141 @@ function App() {
     [q, setQ] = useState(""),
     [requestOpen, setRequestOpen] = useState(false),
     [selected, setSelected] = useState<any>(null),
-    [roles, setRoles] = useState<any[]>([]),
-    [members, setMembers] = useState<any[]>([]),
-    [definitions, setDefinitions] = useState<any[]>([]),
     [access, setAccess] = useState<any>(null);
   async function activateUser(u: User) {
+    resetWorkspace("");
     setUser(u);
-    const mine = await organizations.mine();
-    const first = rows(mine)[0] as any;
-    if (first) {
-      setOrg(first.id);
-      localStorage.setItem("gateflow.org", first.id);
-    } else {
-      setOrg("");
-      setView("setup");
+    const isCurrent = scope.current.start("account");
+    try {
+      const mine = await organizations.mine();
+      if (!isCurrent()) return;
+      const first = rows(mine)[0] as any;
+      if (first) resetWorkspace(first.id);
+      else setView("setup");
+    } catch (e) {
+      if (isCurrent()) setError(e as ApiError);
     }
   }
   useEffect(() => {
+    let mounted = true;
     getCsrf()
       .then(() => auth.me())
-      .then(activateUser)
-      .catch(() => {})
-      .finally(() => setBoot(false));
+      .then((u) => {
+        if (mounted) return activateUser(u);
+      })
+      .catch((e) => {
+        if (mounted && e.status !== 401) setError(e);
+      })
+      .finally(() => mounted && setBoot(false));
+    return () => {
+      mounted = false;
+      scope.current.invalidate();
+    };
   }, []);
-  async function load(next = view) {
-    if (!org || next === "setup") return;
+  useEffect(() => {
+    if (!user) return;
+    function expired() {
+      resetWorkspace("");
+      setUser(null);
+      setView("requests");
+    }
+    window.addEventListener("gateflow:unauthorized", expired);
+    return () => window.removeEventListener("gateflow:unauthorized", expired);
+  }, [user]);
+  async function load(next = view, page = offset) {
+    if (!org || next === "setup" || next === "audit") return;
+    const isCurrent = scope.current.start("list");
     setLoading(true);
     setError(null);
-    localStorage.setItem("gateflow.org", org);
+    setData(null);
     try {
-      setData(
-        await (next === "requests"
-          ? requests.list(org, q)
-          : next === "inbox"
-            ? requests.inbox(org)
-            : notifications.list(org)),
-      );
+      const search = page === 0 ? { q, filters } : applied;
+      const result = await (next === "requests"
+        ? requests.list(org, search.q, page, search.filters)
+        : next === "inbox"
+          ? requests.inbox(org, page)
+          : notifications.list(org, page));
+      if (isCurrent()) {
+        setData(result);
+        setOffset(page);
+        if (next === "requests") setApplied(search);
+      }
     } catch (e) {
-      setError(e as ApiError);
-      setData(null);
+      if (isCurrent()) {
+        setError(e as ApiError);
+        setData(null);
+      }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
   async function loadSetup() {
     if (!org) return;
+    const isCurrent = scope.current.start("setup");
     setLoading(true);
     setError(null);
     try {
-      const [r, m, w] = await Promise.all([
-        organizations.roles(org),
-        organizations.members(org),
-        workflows.list(org),
-      ]);
-      setRoles(rows(r));
-      setMembers(rows(m));
-      setDefinitions(rows(w));
+      const grants = await organizations.access(org);
+      if (!isCurrent()) return;
+      setAccess(grants);
     } catch (e) {
-      setError(e as ApiError);
+      if (isCurrent()) setError(e as ApiError);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
   useEffect(() => {
-    if (user && org) {
-      void organizations
-        .access(org)
-        .then(setAccess)
-        .catch(() => setAccess(null));
-      if (view === "setup") void loadSetup();
-      else void load(view);
-    } else {
-      setAccess(null);
-    }
+    if (!user || !org) return;
+    const isCurrent = scope.current.start("access");
+    void organizations
+      .access(org)
+      .then((value) => {
+        if (isCurrent()) setAccess(value);
+      })
+      .catch(() => {
+        if (isCurrent()) setAccess(null);
+      });
+    if (view === "setup") void loadSetup();
+    else if (view !== "audit") void load(view, 0);
+    return () => {
+      scope.current.invalidate();
+    };
   }, [view, user, org]);
   async function openItem(id: string) {
+    const isCurrent = scope.current.start("detail");
+    setError(null);
+    setSelected(null);
+    try {
+      const result = await requests.get(org, id);
+      if (isCurrent()) setSelected(result);
+    } catch (e) {
+      if (isCurrent()) setError(e as ApiError);
+    }
+  }
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     setError(null);
     try {
-      setSelected(await requests.get(org, id));
+      await auth.logout();
+      resetWorkspace("");
+      setUser(null);
+      setView("requests");
     } catch (e) {
       setError(e as ApiError);
+    } finally {
+      setSigningOut(false);
+    }
+  }
+  async function markRead(id: string) {
+    const workspace = org;
+    try {
+      await notifications.read(workspace, id);
+      if (currentOrg.current === workspace && inWorkspace())
+        await load("notifications");
+    } catch (e) {
+      if (currentOrg.current === workspace && inWorkspace())
+        setError(e as ApiError);
     }
   }
   if (boot)
@@ -152,6 +291,9 @@ function App() {
       ["inbox", "Review inbox"],
       ["notifications", "Notifications"],
       ["setup", "Workspace setup"],
+      ...(access?.permissions?.includes("AUDIT_VIEW")
+        ? [["audit", "Audit logs"] as [View, string]]
+        : []),
     ];
   return (
     <div className="shell">
@@ -164,7 +306,7 @@ function App() {
             <button
               key={x}
               className={view === x ? "active" : ""}
-              onClick={() => setView(x)}
+              onClick={() => chooseView(x)}
             >
               {label}
             </button>
@@ -181,20 +323,8 @@ function App() {
           </div>
           <button
             aria-label="Sign out"
-            onClick={() =>
-              auth.logout().finally(() => {
-                localStorage.removeItem("gateflow.org");
-                setUser(null);
-                setOrg("");
-                setAccess(null);
-                setData(null);
-                setRoles([]);
-                setMembers([]);
-                setDefinitions([]);
-                setSelected(null);
-                setView("requests");
-              })
-            }
+            disabled={signingOut}
+            onClick={() => void signOut()}
           >
             ↗
           </button>
@@ -211,10 +341,12 @@ function App() {
                   ? "Review inbox"
                   : view === "notifications"
                     ? "Notifications"
-                    : "Workspace setup"}
+                    : view === "audit"
+                      ? "Audit logs"
+                      : "Workspace setup"}
             </h1>
           </div>
-          {view !== "setup" && (
+          {view !== "setup" && view !== "audit" && (
             <button
               className="primary"
               disabled={
@@ -231,7 +363,7 @@ function App() {
             Organization ID
             <input
               value={org}
-              onChange={(e) => setOrg(e.target.value)}
+              onChange={(e) => resetWorkspace(e.target.value)}
               placeholder="Paste organization UUID"
             />
           </label>
@@ -241,19 +373,22 @@ function App() {
           >
             Open workspace
           </button>
-          <button onClick={() => setView("setup")}>Manage</button>
+          <button onClick={() => chooseView("setup")}>Manage</button>
         </section>
         <ErrorBox error={error} />
-        {view === "setup" ? (
+        {view === "audit" ? (
+          <AuditLog key={org} org={org} />
+        ) : view === "setup" ? (
           <Setup
+            key={org}
             org={org}
+            permissions={access?.permissions || []}
             user={user}
-            roles={roles}
-            members={members}
-            definitions={definitions}
-            setOrg={setOrg}
+            setOrg={resetWorkspace}
             reload={loadSetup}
-            setError={setError}
+            setError={(e) => {
+              if (currentOrg.current === org && inWorkspace()) setError(e);
+            }}
           />
         ) : (
           <section className="panel">
@@ -278,10 +413,11 @@ function App() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void load();
+                    void load("requests", 0);
                   }}
                 >
                   <input
+                    maxLength={200}
                     aria-label="Search requests"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
@@ -290,6 +426,102 @@ function App() {
                 </form>
               )}
             </div>
+            {view === "requests" && (
+              <form
+                className="filters"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void load("requests", 0);
+                }}
+              >
+                <label>
+                  Status
+                  <select
+                    value={filters.status || ""}
+                    onChange={(e) =>
+                      setFilters({ ...filters, status: e.target.value })
+                    }
+                  >
+                    <option value="">All statuses</option>
+                    {["IN_REVIEW", "APPROVED", "REJECTED", "WITHDRAWN"].map(
+                      (x) => (
+                        <option key={x}>{x}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Sort
+                  <select
+                    value={filters.sort || "CREATED_DESC"}
+                    onChange={(e) =>
+                      setFilters({ ...filters, sort: e.target.value })
+                    }
+                  >
+                    <option value="CREATED_DESC">Newest first</option>
+                    <option value="CREATED_ASC">Oldest first</option>
+                  </select>
+                </label>
+                <label>
+                  Workflow definition UUID
+                  <input
+                    value={filters.workflowId || ""}
+                    onChange={(e) =>
+                      setFilters({ ...filters, workflowId: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Type
+                  <select
+                    value={filters.type || ""}
+                    onChange={(e) =>
+                      setFilters({ ...filters, type: e.target.value })
+                    }
+                  >
+                    <option value="">All types</option>
+                    {["PURCHASE", "SOFTWARE_ACCESS", "POLICY_EXCEPTION"].map(
+                      (x) => (
+                        <option key={x}>{x}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Created from
+                  <input
+                    type="datetime-local"
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        createdFrom: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : "",
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Created before
+                  <input
+                    type="datetime-local"
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        createdBefore: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : "",
+                      })
+                    }
+                  />
+                </label>
+                <button type="submit" disabled={loading}>
+                  Apply filters
+                </button>
+              </form>
+            )}
+            {view === "notifications" && <Preferences key={org} org={org} />}
+
             {loading ? (
               <div className="state">
                 <div className="spinner" />
@@ -319,18 +551,16 @@ function App() {
                 {items.map((item: any, i: number) => (
                   <article key={item.id || i}>
                     <span
-                      className={`status ${(item.state || item.status || "new").toLowerCase()}`}
+                      className={`status ${(item.state || item.eventState || item.kind || "new").toLowerCase()}`}
                     >
-                      {item.state || item.status || item.type || "Update"}
+                      {item.state || item.eventState || item.kind || "Update"}
                     </span>
                     <div>
-                      <h3>
-                        {item.title || item.message || "Approval request"}
-                      </h3>
+                      <h3>{item.title || item.kind || "Approval update"}</h3>
                       <p>
                         {item.description ||
                           item.workflowName ||
-                          item.action ||
+                          item.eventType ||
                           "Open for details"}
                       </p>
                     </div>
@@ -343,37 +573,76 @@ function App() {
                     </time>
                     <button
                       aria-label="Open item"
-                      onClick={() => item.id && openItem(item.id)}
+                      onClick={() => {
+                        const id =
+                          view === "notifications" ? item.requestId : item.id;
+                        if (id) void openItem(id);
+                      }}
                     >
                       →
                     </button>
+                    {view === "notifications" && !item.readAt && (
+                      <button
+                        onClick={() => void markRead(item.id)}
+                        aria-label="Mark notification read"
+                      >
+                        Read
+                      </button>
+                    )}
                   </article>
                 ))}
               </div>
             )}
+            <div className="pagination" aria-label="Pagination">
+              <button
+                disabled={loading || offset === 0}
+                onClick={() => void load(view, Math.max(0, offset - 20))}
+              >
+                Previous
+              </button>
+              <span>Page {Math.floor(offset / 20) + 1}</span>
+              <button
+                disabled={loading || !data?.hasMore || offset >= 10000}
+                onClick={() => void load(view, offset + 20)}
+              >
+                Next
+              </button>
+            </div>
           </section>
         )}
         {requestOpen && (
           <NewRequest
+            key={org}
             org={org}
             onClose={() => setRequestOpen(false)}
             onDone={() => {
+              if (currentOrg.current !== org || !inWorkspace()) return;
               setRequestOpen(false);
               setView("requests");
               void load("requests");
             }}
-            setError={setError}
+            setError={(e) => {
+              if (currentOrg.current === org && inWorkspace()) setError(e);
+            }}
           />
         )}{" "}
         {selected && (
           <RequestDetail
+            key={`${org}:${selected.id}`}
             org={org}
+            permissions={access?.permissions || []}
             request={selected}
             membershipId={access?.membershipId}
-            setRequest={setSelected}
+            setRequest={(r) => {
+              if (currentOrg.current === org && inWorkspace()) setSelected(r);
+            }}
             onClose={() => setSelected(null)}
-            onChanged={() => void load(view)}
-            setError={setError}
+            onChanged={() => {
+              if (currentOrg.current === org && inWorkspace()) void load(view);
+            }}
+            setError={(e) => {
+              if (currentOrg.current === org && inWorkspace()) setError(e);
+            }}
           />
         )}
       </main>
@@ -381,20 +650,16 @@ function App() {
   );
 }
 function Setup({
+  permissions,
   org,
   user,
-  roles,
-  members,
-  definitions,
   setOrg,
   reload,
   setError,
 }: {
   org: string;
+  permissions: string[];
   user: User;
-  roles: any[];
-  members: any[];
-  definitions: any[];
   setOrg: (s: string) => void;
   reload: () => Promise<void>;
   setError: (e: ApiError | null) => void;
@@ -447,134 +712,7 @@ function Setup({
           <code>{user.id}</code>
         </p>
       </section>
-      <section className="panel card">
-        <h2>Reviewer access</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            void run(async () => {
-              await organizations.createReviewerRole(
-                org,
-                String(f.get("code")).toUpperCase(),
-                String(f.get("name")),
-              );
-            });
-          }}
-        >
-          <label>
-            Role code
-            <input name="code" defaultValue="APPROVER" required />
-          </label>
-          <label>
-            Role name
-            <input name="name" defaultValue="Approval reviewer" required />
-          </label>
-          <button className="primary" disabled={!org || busy}>
-            Create reviewer role
-          </button>
-        </form>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            void run(async () => {
-              await organizations.enroll(org, String(f.get("userId")), [
-                String(f.get("roleId")),
-              ]);
-            });
-          }}
-        >
-          <label>
-            Reviewer user ID
-            <input name="userId" required />
-          </label>
-          <label>
-            Reviewer role
-            <select name="roleId" required>
-              <option value="">Choose role</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="primary" disabled={!org || busy}>
-            Add reviewer
-          </button>
-        </form>
-      </section>
-      <section className="panel card">
-        <h2>Approval policy</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            void run(async () => {
-              const d = await workflows.create(
-                org,
-                String(f.get("name")),
-                String(f.get("description")),
-              );
-              const v = await workflows.createVersion(
-                org,
-                d.id,
-                String(f.get("roleId")),
-              );
-              const p = await workflows.publish(org, d.id, v.id, v.version);
-              localStorage.setItem(`gateflow.policy.${org}`, p.id);
-            });
-          }}
-        >
-          <label>
-            Policy name
-            <input name="name" defaultValue="Standard approval" required />
-          </label>
-          <label>
-            Description
-            <input name="description" defaultValue="One-step approval policy" />
-          </label>
-          <label>
-            Approver role
-            <select name="roleId" required>
-              <option value="">Choose role</option>
-              {roles
-                .filter((r) => r.permissions?.includes("REQUEST_APPROVE"))
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <button className="primary" disabled={!org || busy}>
-            Create and publish policy
-          </button>
-        </form>
-        <p>
-          Saved policy version:{" "}
-          <code>
-            {org
-              ? localStorage.getItem(`gateflow.policy.${org}`) || "None yet"
-              : "None"}
-          </code>
-        </p>
-      </section>
-      <section className="panel card">
-        <h2>Workspace directory</h2>
-        <p>
-          {roles.length} roles · {members.length} members · {definitions.length}{" "}
-          workflows
-        </p>
-        <ul>
-          {members.map((m) => (
-            <li key={m.id}>
-              {m.displayName || m.email} — {m.status}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <WorkspaceAdmin key={org} org={org} permissions={permissions} />
     </div>
   );
 }
@@ -589,12 +727,15 @@ function NewRequest({
   onDone: () => void;
   setError: (e: ApiError | null) => void;
 }) {
+  const intent = useRef(new CommandIntent());
+  const [localError, setLocalError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false),
     [type, setType] = useState("PURCHASE");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setLocalError(null);
     const f = new FormData(e.currentTarget),
       details =
         type === "SOFTWARE_ACCESS"
@@ -603,18 +744,25 @@ function NewRequest({
             ? { policyCode: String(f.get("detail")) }
             : { vendor: String(f.get("detail")) };
     try {
-      await requests.submit(org, {
-        workflowVersionId: String(f.get("workflowVersionId")),
-        title: String(f.get("title")),
-        description: String(f.get("description")),
-        requestType: type,
-        purchaseAmount: type === "PURCHASE" ? Number(f.get("amount")) : null,
-        currency:
-          type === "PURCHASE" ? String(f.get("currency")).toUpperCase() : null,
-        details,
-      });
+      await requests.submit(
+        org,
+        {
+          workflowVersionId: String(f.get("workflowVersionId")),
+          title: String(f.get("title")),
+          description: String(f.get("description")),
+          requestType: type,
+          purchaseAmount: type === "PURCHASE" ? Number(f.get("amount")) : null,
+          currency:
+            type === "PURCHASE"
+              ? String(f.get("currency")).toUpperCase()
+              : null,
+          details,
+        },
+        intent.current,
+      );
       onDone();
     } catch (e) {
+      setLocalError(e as ApiError);
       setError(e as ApiError);
     } finally {
       setBusy(false);
@@ -623,6 +771,7 @@ function NewRequest({
   return (
     <Modal title="New approval request" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
+        <ErrorBox error={localError} />
         <label>
           Published policy version ID
           <input
@@ -691,6 +840,7 @@ function NewRequest({
   );
 }
 function RequestDetail({
+  permissions,
   org,
   request,
   membershipId,
@@ -702,26 +852,50 @@ function RequestDetail({
   org: string;
   request: any;
   membershipId?: string;
+  permissions: string[];
   setRequest: (r: any) => void;
   onClose: () => void;
   onChanged: () => void;
   setError: (e: ApiError | null) => void;
 }) {
   const [comment, setComment] = useState("");
+  const [localError, setLocalError] = useState<ApiError | null>(null);
+  const [busy, setBusy] = useState(false);
+  const decisionIntent = useRef(new CommandIntent());
+  const withdrawIntent = useRef(new CommandIntent());
+  const reassignIntent = useRef(new CommandIntent());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   async function act(fn: () => Promise<any>) {
+    if (busy) return;
+    setBusy(true);
     setError(null);
+    setLocalError(null);
     try {
       const r = await fn();
-      setRequest(r);
-      onChanged();
+      if (mounted.current) {
+        setRequest(r);
+        onChanged();
+      }
     } catch (e) {
-      setError(e as ApiError);
+      if (mounted.current) {
+        setLocalError(e as ApiError);
+        setError(e as ApiError);
+      }
+    } finally {
+      if (mounted.current) setBusy(false);
     }
   }
   const active = request.steps?.find((s: any) => s.state === "ACTIVE");
   return (
     <Modal title={request.title || "Request details"} onClose={onClose}>
       <div className="detail">
+        <ErrorBox error={localError} />
         <span className={`status ${(request.state || "new").toLowerCase()}`}>
           {request.state}
         </span>
@@ -741,6 +915,55 @@ function RequestDetail({
           <dd>{request.version}</dd>
         </dl>
         <h3>Approval steps</h3>
+        <Activity
+          key={`${request.id}:${request.version}`}
+          org={org}
+          requestId={request.id}
+        />
+        {permissions.includes("REQUEST_REASSIGN") &&
+          permissions.includes("REQUEST_VIEW_ALL") &&
+          request.state === "IN_REVIEW" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                void act(() =>
+                  requests.reassign(
+                    org,
+                    request.id,
+                    String(f.get("stepId")),
+                    request.version,
+                    String(f.get("membershipId")),
+                    reassignIntent.current,
+                  ),
+                );
+              }}
+            >
+              <label>
+                Step to reassign
+                <select name="stepId" required>
+                  {request.steps
+                    ?.filter(
+                      (s: any) => s.state === "ACTIVE" || s.state === "WAITING",
+                    )
+                    .map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.position}. {s.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Eligible reviewer membership UUID
+                <input
+                  name="membershipId"
+                  required
+                  pattern="[0-9a-fA-F-]{36}"
+                />
+              </label>
+              <button disabled={busy}>Reassign reviewer</button>
+            </form>
+          )}
         {request.steps?.map((s: any) => (
           <div className="step" key={s.id}>
             <b>
@@ -749,59 +972,74 @@ function RequestDetail({
             <span>{s.state}</span>
           </div>
         ))}
-        {active?.assignedMembershipId === membershipId && (
-          <>
-            <label>
-              Decision comment
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-            </label>
-            <div className="actions">
-              <button
-                className="danger"
-                onClick={() =>
-                  void act(() =>
-                    requests.decide(
-                      org,
-                      request.id,
-                      active.id,
-                      request.version,
-                      "REJECT",
-                      comment,
-                    ),
-                  )
-                }
-              >
-                Reject
-              </button>
-              <button
-                className="primary"
-                onClick={() =>
-                  void act(() =>
-                    requests.decide(
-                      org,
-                      request.id,
-                      active.id,
-                      request.version,
-                      "APPROVE",
-                      comment,
-                    ),
-                  )
-                }
-              >
-                Approve
-              </button>
-            </div>
-          </>
-        )}
+        {active &&
+          active.assignedMembershipId === membershipId &&
+          permissions.includes("REQUEST_APPROVE") && (
+            <>
+              <label>
+                Decision comment
+                <textarea
+                  maxLength={2000}
+                  disabled={busy}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+              </label>
+              <div className="actions">
+                <button
+                  className="danger"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() =>
+                      requests.decide(
+                        org,
+                        request.id,
+                        active.id,
+                        request.version,
+                        "REJECT",
+                        comment,
+                        decisionIntent.current,
+                      ),
+                    )
+                  }
+                >
+                  Reject
+                </button>
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() =>
+                      requests.decide(
+                        org,
+                        request.id,
+                        active.id,
+                        request.version,
+                        "APPROVE",
+                        comment,
+                        decisionIntent.current,
+                      ),
+                    )
+                  }
+                >
+                  Approve
+                </button>
+              </div>
+            </>
+          )}
         {request.state === "IN_REVIEW" &&
-          request.requesterMembershipId === membershipId && (
+          request.requesterMembershipId === membershipId &&
+          permissions.includes("REQUEST_WITHDRAW_OWN") && (
             <button
+              disabled={busy}
               onClick={() =>
                 void act(() =>
-                  requests.withdraw(org, request.id, request.version),
+                  requests.withdraw(
+                    org,
+                    request.id,
+                    request.version,
+                    withdrawIntent.current,
+                  ),
                 )
               }
             >
@@ -852,7 +1090,7 @@ function Auth({ onUser }: { onUser: (u: User) => void | Promise<void> }) {
           </p>
           <ul>
             <li>Versioned approval policies</li>
-            <li>Real-time reviewer inbox</li>
+            <li>Current reviewer inbox</li>
             <li>Traceable decision history</li>
           </ul>
         </div>
@@ -872,12 +1110,23 @@ function Auth({ onUser }: { onUser: (u: User) => void | Promise<void> }) {
         {signup && (
           <label>
             Display name
-            <input name="displayName" required autoComplete="name" />
+            <input
+              name="displayName"
+              required
+              maxLength={120}
+              autoComplete="name"
+            />
           </label>
         )}
         <label>
           Email
-          <input name="email" type="email" required autoComplete="email" />
+          <input
+            name="email"
+            type="email"
+            required
+            maxLength={254}
+            autoComplete="email"
+          />
         </label>
         <label>
           Password
@@ -885,7 +1134,8 @@ function Auth({ onUser }: { onUser: (u: User) => void | Promise<void> }) {
             name="password"
             type="password"
             required
-            minLength={12}
+            minLength={signup ? 12 : undefined}
+            maxLength={64}
             autoComplete={signup ? "new-password" : "current-password"}
           />
         </label>
@@ -908,8 +1158,3 @@ function Auth({ onUser }: { onUser: (u: User) => void | Promise<void> }) {
     </main>
   );
 }
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);

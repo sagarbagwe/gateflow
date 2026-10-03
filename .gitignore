@@ -23,6 +23,7 @@ __pycache__/
 *.log
 # Generated exports
 *.zip
-
-
 *.tsbuildinfo
+# Local browser-test fixtures and captures
+frontend/.qa/
+verification/
