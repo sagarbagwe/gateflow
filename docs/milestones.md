@@ -1,6 +1,6 @@
 # Incremental delivery plan
 
-Milestones 1–20 are delivered. Milestones 1–13 retain their verified backend evidence. Milestones 14–20 add the accessible SPA, observability, full-stack containers, CI/security automation, AWS/recovery design, a repeatable performance plan, and the final threat review. Frontend lint/build/tests and static Compose validation passed in the implementation workspace; full container and CI execution remains host-side evidence, not a production claim. Tests/security
+Milestones 1–20 are delivered. Milestones 1–13 retain their verified backend evidence. Milestones 14–20 add the accessible SPA, observability, full-stack containers, CI/security automation, AWS/recovery design, a repeatable performance plan, and the final threat review. Frontend lint/build/tests, production dependency audit, image builds, the complete Compose runtime, observability contract, and k6 smoke workload passed on a fresh GitHub-hosted Docker runner. This is reproducible verification, not a production-capacity or cloud-deployment claim. Tests/security
 invariants start with their features rather than waiting for later review phases.
 
 | # | Milestone | Exit evidence |

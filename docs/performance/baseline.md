@@ -11,3 +11,7 @@ Run against staging-sized PostgreSQL, Redis, and RabbitMQ with seeded tenants an
 ## Acceptance gates
 
 At 50 virtual users, target p95 read latency below 500 ms, p95 commands below 750 ms, error rate below 1% excluding expected 409 conflicts, no connection-pool exhaustion, and outbox age returning below 30 seconds within five minutes after recovery. Change one bottleneck at a time and record before/after evidence.
+
+## Verified smoke result
+
+A GitHub-hosted Docker run completed 1,834 CSRF endpoint requests through the production Nginx-to-Spring path with 20 peak virtual users, 0 failed requests, and 4.92 ms p95 response time. This validates the harness and basic stack stability on one ephemeral runner; it is not a production throughput claim and does not replace the mixed authenticated workload above.

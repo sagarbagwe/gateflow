@@ -68,7 +68,7 @@ services:
       NOTIFICATIONS_ENABLED: "true"
       EMAIL_ENABLED: "true"
     ports: ["127.0.0.1:${BACKEND_PORT:-8080}:8080"]
-    healthcheck: {test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"], interval: 10s, timeout: 3s, retries: 18, start_period: 40s}
+    healthcheck: {test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"], interval: 10s, timeout: 3s, retries: 18, start_period: 40s}
     security_opt: ["no-new-privileges:true"]
   frontend:
     build: {context: ./frontend}
@@ -76,7 +76,8 @@ services:
     depends_on: {backend: {condition: service_healthy}}
     ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:8080"]
     read_only: true
-    tmpfs: ["/var/cache/nginx","/var/run"]
+    tmpfs: ["/var/cache/nginx:uid=101,gid=101,mode=0755","/var/run:uid=101,gid=101,mode=0755"]
+    healthcheck: {test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ | grep -q '<title>GateFlow</title>'"], interval: 5s, timeout: 3s, retries: 12, start_period: 5s}
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
     security_opt: ["no-new-privileges:true"]

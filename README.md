@@ -3,7 +3,7 @@
 Configurable approval workflows with reliable execution and traceable decisions.
 
 > **Status: Milestones 1–20 delivered to the repository.**
-> Core backend behavior remains covered by the existing 313-test baseline. The new React UI passed lint, TypeScript production build, and unit tests. Full-stack container and CI execution must run on a Docker/GitHub Actions host; no production cloud deployment was performed.
+> Core backend behavior remains covered by the existing 313-test baseline. The React UI, production dependency audit, container image builds, full Docker stack, health/metrics contract, and k6 smoke workload passed on a GitHub-hosted Docker runner. No production cloud deployment was performed.
 
 ## Problem
 
