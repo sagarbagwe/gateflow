@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{normalizeItems}from'../src/view-model';
+describe('normalizeItems',()=>{it('supports bounded API page shapes',()=>{expect(normalizeItems({items:[1]})).toEqual([1]);expect(normalizeItems({content:[2]})).toEqual([2]);expect(normalizeItems({results:[3]})).toEqual([3])});it('returns an empty state for malformed responses',()=>{expect(normalizeItems(null)).toEqual([]);expect(normalizeItems({items:'nope'})).toEqual([])})});

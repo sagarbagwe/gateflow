@@ -1,111 +1,89 @@
 name: gateflow
-
 services:
   postgres:
     image: postgres:17-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
-    command: ["postgres", "-c", "log_error_verbosity=terse", "-c", "log_min_error_statement=panic", "-c", "log_parameter_max_length_on_error=0"]
+    command: ["postgres","-c","log_error_verbosity=terse","-c","log_min_error_statement=panic","-c","log_parameter_max_length_on_error=0"]
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
-
+    environment: {POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB in .env}", POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER in .env}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"}
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""], interval: 5s, timeout: 3s, retries: 10, start_period: 10s}
   redis:
-    # Cache-only instance: reconstructible data, bounded memory, no disk persistence.
     image: redis:7.4-bookworm@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
     user: redis
     read_only: true
     cap_drop: [ALL]
     tmpfs: [/tmp]
     restart: unless-stopped
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        case "$$REDIS_PASSWORD" in ''|*[!A-Za-z0-9_-]*) echo 'Use a URL-safe Redis password' >&2; exit 1;; esac
-        umask 077
-        printf 'requirepass "%s"\n' "$$REDIS_PASSWORD" > /tmp/gateflow-redis.conf
-        exec redis-server /tmp/gateflow-redis.conf --dir /tmp --save '' --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-    healthcheck:
-      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli --no-auth-warning ping | grep -qx PONG']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
-
+    environment: {REDIS_PASSWORD: "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"}
+    command: ["/bin/sh","-ec","case \"$$REDIS_PASSWORD\" in ''|*[!A-Za-z0-9_-]*) exit 1;; esac; umask 077; printf 'requirepass \"%s\"\\n' \"$$REDIS_PASSWORD\" > /tmp/redis.conf; exec redis-server /tmp/redis.conf --dir /tmp --save '' --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru"]
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
+    healthcheck: {test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli --no-auth-warning ping | grep -qx PONG"], interval: 5s, timeout: 3s, retries: 10, start_period: 5s}
   rabbitmq:
     image: rabbitmq:4.2@sha256:3e96f87bcaa24ee025edd961e449b97036a323ff67f884099858fa6305f43c28
     hostname: gateflow-rabbitmq
     restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME in .env}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:?Set RABBITMQ_VHOST in .env}
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +A 2 -rabbit max_message_size 65536"
-      RABBITMQ_CTL_ERL_ARGS: "+S 1:1 +A 1"
-    ports:
-      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: [CMD, rabbitmq-diagnostics, -q, check_running]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 15s
-
+    environment: {RABBITMQ_DEFAULT_USER: "${RABBITMQ_USERNAME:?Set RABBITMQ_USERNAME in .env}", RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}", RABBITMQ_DEFAULT_VHOST: "${RABBITMQ_VHOST:?Set RABBITMQ_VHOST in .env}", RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +A 2 -rabbit max_message_size 65536", RABBITMQ_CTL_ERL_ARGS: "+S 1:1 +A 1"}
+    ports: ["127.0.0.1:${RABBITMQ_PORT:-5672}:5672"]
+    volumes: ["rabbitmq_data:/var/lib/rabbitmq"]
+    healthcheck: {test: [CMD,rabbitmq-diagnostics,-q,check_running], interval: 10s, timeout: 5s, retries: 12, start_period: 15s}
   mailpit:
-    # Development-only SMTP capture; never configure forwarding/relay to real recipients.
     image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
     user: "1000:1000"
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     tmpfs: ["/tmp:rw,nosuid,noexec,size=64m,uid=1000,gid=1000,mode=1777"]
-    command: ["--disable-version-check", "--smtp-disable-rdns", "--database", "/tmp/mailpit.db", "--max", "300", "--max-message-size", "1"]
-    ports:
-      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
-      - "127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025"
-    healthcheck:
-      test: [CMD, /mailpit, readyz]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-
+    command: ["--disable-version-check","--smtp-disable-rdns","--database","/tmp/mailpit.db","--max","300","--max-message-size","1"]
+    ports: ["127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025","127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025"]
+    healthcheck: {test: [CMD,/mailpit,readyz], interval: 5s, timeout: 3s, retries: 12}
+  backend:
+    build: {context: ./backend}
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      mailpit: {condition: service_healthy}
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_STARTTLS: "false"
+      SMTP_STARTTLS_REQUIRED: "false"
+      AUTH_COOKIE_SECURE: "false"
+      PUBLISHED_POLICY_CACHE_ENABLED: "true"
+      ASYNC_ENABLED: "true"
+      NOTIFICATIONS_ENABLED: "true"
+      EMAIL_ENABLED: "true"
+    ports: ["127.0.0.1:${BACKEND_PORT:-8080}:8080"]
+    healthcheck: {test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"], interval: 10s, timeout: 3s, retries: 18, start_period: 40s}
+    security_opt: ["no-new-privileges:true"]
+  frontend:
+    build: {context: ./frontend}
+    restart: unless-stopped
+    depends_on: {backend: {condition: service_healthy}}
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:8080"]
+    read_only: true
+    tmpfs: ["/var/cache/nginx","/var/run"]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
   flyway:
-    # One-shot tool, not an application service. Verified Flyway OSS 13.8.1.
     image: flyway/flyway:13.8.1-alpine@sha256:ca3c8eddac25811f84c9767c56a0610ce23cd4e61f59bb05778a78db42347b39
     profiles: [tools]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
-      FLYWAY_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
-      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      FLYWAY_LOCATIONS: filesystem:/flyway/sql
-      FLYWAY_CLEAN_DISABLED: "true"
-      FLYWAY_BASELINE_ON_MIGRATE: "false"
-      FLYWAY_OUT_OF_ORDER: "false"
-      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
-      FLYWAY_CONNECT_RETRIES: "10"
-    volumes:
-      - ./backend/src/main/resources/db/migration:/flyway/sql:ro
-
-volumes:
-  postgres_data:
-  rabbitmq_data:
+    depends_on: {postgres: {condition: service_healthy}}
+    environment: {FLYWAY_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB}", FLYWAY_USER: "${POSTGRES_USER}", FLYWAY_PASSWORD: "${POSTGRES_PASSWORD}", FLYWAY_LOCATIONS: "filesystem:/flyway/sql", FLYWAY_CLEAN_DISABLED: "true", FLYWAY_BASELINE_ON_MIGRATE: "false", FLYWAY_OUT_OF_ORDER: "false", FLYWAY_VALIDATE_MIGRATION_NAMING: "true", FLYWAY_CONNECT_RETRIES: "10"}
+    volumes: ["./backend/src/main/resources/db/migration:/flyway/sql:ro"]
+volumes: {postgres_data: {}, rabbitmq_data: {}}

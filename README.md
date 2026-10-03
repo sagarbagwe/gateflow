@@ -2,11 +2,8 @@
 
 Configurable approval workflows with reliable execution and traceable decisions.
 
-> **Status: Milestone 13 — reproducible layered testing and measured coverage.**
-> Authentication/RBAC, workflows, search, policy cache and event delivery work.
-> In-app inbox/preferences and opt-in email use current access checks and durable jobs.
-> Tenant-wide audit investigation requires AUDIT_VIEW; normal writes remain append-only.
-> Frontend, CI and production deployment remain later milestones.
+> **Status: Milestones 1–20 delivered to the repository.**
+> Core backend behavior remains covered by the existing 313-test baseline. The new React UI passed lint, TypeScript production build, and unit tests. Full-stack container and CI execution must run on a Docker/GitHub Actions host; no production cloud deployment was performed.
 
 ## Problem
 
@@ -76,9 +73,9 @@ See [system design](docs/architecture/system-design.md).
 | Redis 7.4.11, Spring Data Redis/Lettuce | Published-policy read cache only; auth rate limits remain PostgreSQL | Milestone 7 implemented |
 | RabbitMQ 4.2.9, Spring AMQP | Independent activity/notification subscribers, confirms/retries/DLQs | Implemented |
 | Spring Mail/Jakarta Mail, local Mailpit 1.31.3 | SMTP provider adapter and safe local capture | M9 implemented; no external mailbox contacted |
-| React, TypeScript, Vite | Authenticated application UI | Milestone 14 |
+| React 19, TypeScript, Vite | Responsive authentication, request, inbox and notification UI | Implemented |
 | JUnit, Mockito, Testcontainers | Unit and real HTTP/database verification | Unit, HTTP/database, and RBAC race tests; evidence linked below |
-| Docker Compose, GitHub Actions | Local dependencies and CI | Dependency Compose now; CI later |
+| Docker Compose, GitHub Actions | Full local stack and CI | Implemented; production deploy intentionally disabled |
 
 Build dependency versions are pinned by the POM/Boot dependency management.
 No comprehensive vulnerability or production-capacity claim is made yet.
@@ -131,9 +128,7 @@ python3 scripts/run-backend.py --jar
 
 The development launcher rejects unchanged password placeholders. Compose requires
 configured values but does not enforce password strength; use distinct private secrets.
-At this milestone Compose starts **PostgreSQL, cache-only Redis, RabbitMQ and local-only Mailpit**; the
-Spring Boot backend is run separately by the development launcher. Full app
-containerization remains Milestone 16.
+Compose starts the frontend, backend, PostgreSQL, cache-only Redis, RabbitMQ, and local-only Mailpit. Use `bash scripts/test-stack.sh` on a Docker host for the readiness and same-origin API smoke checks.
 
 See [development instructions](docs/development.md) for stopping, resets, and
 troubleshooting. Never reuse local credentials in production.
@@ -186,9 +181,7 @@ stack are intentionally deferred. Production image scanning is still future work
 
 ## CI/CD
 
-No workflow is active yet. Planned pipeline: build, lint, unit tests, integration
-tests, container build, and security checks. Production deployment needs an
-explicit rollout/rollback plan and approval; it is not enabled automatically.
+GitHub Actions builds and tests the backend and frontend, builds both container images, uploads the JAR, and runs CodeQL. Dependabot covers Maven, npm, Actions, and Docker. Production deployment remains intentionally disabled pending explicit approval and environment controls.
 
 ## Performance
 
@@ -235,13 +228,13 @@ See [delivery and recovery contract](docs/async/event-delivery.md) and
 Parallel approval quorums, reminder/escalation policies, delegation, provider
 adapters, and independent worker scaling—only after the core is verified.
 
-## Screenshots
+## Frontend
 
-Not available: the UI is not implemented.
+The responsive SPA implements signup/login, organization selection, request search, reviewer inbox, notifications, loading/error/empty states, keyboard focus, reduced-motion handling, and same-origin cookie/CSRF transport. See `frontend/README.md`.
 
 ## Demo
 
-No hosted demo exists. The agent started the packaged backend and verified auth,
+No hosted demo or paid cloud deployment exists. The agent started the packaged backend and verified auth,
 approval lifecycles, full-text filters and cursor navigation against PostgreSQL. Disposable business fixtures were removed;
 there is no persistent publicly hosted service or browser UI yet.
 
@@ -291,3 +284,11 @@ and session-protected when enabled.
 
 [Testing strategy](docs/testing/strategy.md); packaged API E2E is reproducible with
 `bash scripts/test-e2e.sh`. JaCoCo reports are generated during Maven verify.
+
+
+## Production readiness deliverables
+
+- [Observability signals and runbook](docs/observability/runbook.md)
+- [AWS architecture, recovery, cost, and rollout](docs/aws/architecture.md)
+- [Performance baseline and acceptance gates](docs/performance/baseline.md)
+- [Security threat review and release checklist](docs/security/review.md)
