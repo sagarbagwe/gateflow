@@ -16,7 +16,7 @@ done < <(docker compose images -q backend frontend | sort -u)
 # ElastiCache and a reviewed broker deployment, not local Compose credentials.
 
 # Never scan/upload .env, disposable fixtures, build caches, or database dumps.
-trivy fs --scanners secret --exit-code 1 --skip-dirs node_modules --skip-dirs .git \
+trivy fs --offline-scan --scanners secret --exit-code 1 --skip-dirs node_modules --skip-dirs .git \
   --skip-dirs verification --skip-dirs .qa --skip-dirs target --skip-dirs dist \
   --skip-files .env --skip-files .load-fixture.json --format json \
   --output verification/security/secrets.json .

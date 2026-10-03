@@ -5,6 +5,16 @@ Configurable approval workflows with reliable execution and traceable decisions.
 > **Status: backend foundation and repository hardening implemented; production release remains gated.**
 > Core backend behavior remains covered by the existing 313-test baseline. The React UI, production dependency audit, container image builds, full Docker stack, health/metrics contract, and k6 smoke workload passed on a GitHub-hosted Docker runner. No AWS production deployment was performed; the hosted demo is not production certification.
 
+## Current hardening review
+
+All new changes are isolated on `hardening/m17-m20-verified` in
+[draft PR #25](https://github.com/sagarbagwe/gateflow/pull/25); **main and the hosted demo are unchanged**.
+[Branch verification](docs/verification/hardening.md) separates tested behavior from
+remaining production/operator gates. Current application images passed HIGH/CRITICAL scans,
+and the real approval flow, non-owner database runtime, local restore and authenticated
+business workload were tested. The extended CI installation is still blocked by
+GitHub workflow-write permission. This is not production certification.
+
 ## Problem
 
 Purchase, software-access, and policy-exception approvals often disappear into
@@ -176,7 +186,7 @@ updates require explicit review and migration tests. Mailpit is a digest-pinned,
 unprivileged/read-only, bounded ephemeral mail capture sink with no relay configured.
 Flyway is a one-shot tools
 profile, not a long-running application. A one-node broker is not highly available.
-Backend/frontend Dockerfiles and the full local stack are implemented. A prepared CI update starts an isolated Compose environment and exercises an authenticated approval lifecycle; applying it is blocked by GitHub workflow-write permission. Production image scanning remains a release requirement.
+Backend/frontend Dockerfiles and the full local stack are implemented. A prepared CI update starts an isolated Compose environment and exercises an authenticated approval lifecycle; applying it is blocked by GitHub workflow-write permission. Backend/frontend application image scans passed for the reviewed runtime artifact. Infrastructure advisories and periodic rescanning remain release requirements.
 
 ## CI/CD
 
@@ -188,7 +198,7 @@ Seeded PostgreSQL EXPLAIN (ANALYZE, BUFFERS) checks verify rare-term GIN search
 and B-tree feed/deep-cursor index selection on 30,002 records across two tenants
 after normal bulk-load vacuum maintenance. These are structural plan checks,
 not production latency/load benchmarks. Capacity figures remain assumptions.
-Milestone 19 records measured before/after workload results. Redis hits omit the
+The current [authenticated workload](docs/performance/hardening-workload.md) records raw measurements and limitations. No new optimization speedup is claimed. Redis hits omit the
 ordered policy-step query, not current authorization/header SQL; no percentage
 speedup is claimed. See [cache contract](docs/cache/workflow-policy.md).
 
@@ -205,8 +215,7 @@ rules and bounded bodies are implemented. Notifications require recipient owners
 and current request visibility; email preflight rechecks opt-in/access/stale action.
 Messages contain only a generic sign-in reminder, never business details. External
 production email must remain disabled until verified-address/abuse/provider setup.
-Email verification/recovery, runtime DB
-least privilege, ingress hardening and dependency review remain unfinished.
+Runtime DB least privilege is implemented and verified on the isolated stack; actual production credential rollout is unverified. Email verification/recovery, production ingress/IAM, infrastructure advisory review and operational release gates remain unfinished.
 **This is not production-deployment-ready.** See [session decision](docs/decisions/005-cookie-sessions.md).
 
 ## Trade-offs
