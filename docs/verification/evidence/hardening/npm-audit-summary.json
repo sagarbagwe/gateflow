@@ -1,0 +1,77 @@
+{
+  "scope": "all frontend declared dependencies, including development tooling",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 2,
+      "high": 0,
+      "critical": 0,
+      "total": 2
+    },
+    "dependencies": {
+      "prod": 64,
+      "dev": 198,
+      "optional": 53,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 314
+    }
+  },
+  "advisories": {
+    "@vitest/mocker": {
+      "severity": "moderate",
+      "direct": false,
+      "fixAvailable": {
+        "name": "vitest",
+        "version": "5.0.3",
+        "isSemVerMajor": true
+      },
+      "via": [
+        {
+          "source": 1193684,
+          "name": "@vitest/mocker",
+          "dependency": "@vitest/mocker",
+          "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+          "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=2.1.0 <4.1.11"
+        }
+      ]
+    },
+    "vitest": {
+      "severity": "moderate",
+      "direct": true,
+      "fixAvailable": {
+        "name": "vitest",
+        "version": "5.0.3",
+        "isSemVerMajor": true
+      },
+      "via": [
+        {
+          "source": 1193683,
+          "name": "vitest",
+          "dependency": "vitest",
+          "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+          "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=2.1.0 <4.1.11"
+        }
+      ]
+    }
+  }
+}

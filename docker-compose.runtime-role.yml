@@ -1,0 +1,9 @@
+# Optional LOCAL verification overlay, not a production deployment manifest.
+# Run migrations with the owner first, provision gateflow_app, then start this overlay.
+services:
+  backend:
+    environment:
+      DATABASE_USER: gateflow_app
+      DATABASE_PASSWORD: ${DATABASE_APP_PASSWORD:?Provision a unique runtime password first}
+      FLYWAY_ENABLED: "false"
+      API_DOCS_ENABLED: "false"

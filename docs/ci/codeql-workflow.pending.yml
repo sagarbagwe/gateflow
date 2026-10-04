@@ -1,3 +1,4 @@
+# Pending installation: workflow-write permission is required.
 name: CodeQL
 on:
   pull_request:

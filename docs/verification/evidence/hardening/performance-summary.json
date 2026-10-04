@@ -1,0 +1,52 @@
+[
+  {
+    "source": "k6-business-baseline.json",
+    "vus": 5,
+    "http_requests": 1831,
+    "http_rps": 30.416572913657884,
+    "business_samples": 1551,
+    "business_errors": 0,
+    "business_p95_ms": 23.964529499999998,
+    "checks_passed": 1971
+  },
+  {
+    "source": "k6-business-ten-vu.json",
+    "vus": 10,
+    "http_requests": 3711,
+    "http_rps": 61.659153824376475,
+    "business_samples": 3141,
+    "business_errors": 0,
+    "business_p95_ms": 19.702928,
+    "checks_passed": 3996
+  },
+  {
+    "source": "k6-business-patched-final.json",
+    "vus": 10,
+    "http_requests": 3678,
+    "http_rps": 61.087103220914784,
+    "business_samples": 3112,
+    "business_errors": 0,
+    "business_p95_ms": 23.870508799999996,
+    "checks_passed": 3961
+  },
+  {
+    "source": "k6-redis-outage.json",
+    "vus": 1,
+    "http_requests": 59,
+    "http_rps": 5.881451518720977,
+    "business_samples": 51,
+    "business_errors": 0,
+    "business_p95_ms": 18.4029585,
+    "checks_passed": 63
+  },
+  {
+    "source": "k6-broker-outage.json",
+    "vus": 1,
+    "http_requests": 60,
+    "http_rps": 5.934795533828811,
+    "business_samples": 52,
+    "business_errors": 0,
+    "business_p95_ms": 12.72881804999999,
+    "checks_passed": 64
+  }
+]

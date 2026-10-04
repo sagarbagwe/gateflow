@@ -1,0 +1,19 @@
+{
+  "backend_commit": "0163c5be439dbbfba1d3bdb1c622bb72228395c1",
+  "outbox_pending_during_outage": 8,
+  "outbox_pending_after_recovery": 0,
+  "probes": [
+    {
+      "probe": "k6-final-redis-outage.json",
+      "http_requests": 60,
+      "business_samples": 52,
+      "errors": 0
+    },
+    {
+      "probe": "k6-final-broker-outage.json",
+      "http_requests": 60,
+      "business_samples": 52,
+      "errors": 0
+    }
+  ]
+}
