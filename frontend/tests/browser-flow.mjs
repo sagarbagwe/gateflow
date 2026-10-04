@@ -187,8 +187,8 @@ try {
         items: [
           {
             id: "a1",
-            action: "REQUEST_SUBMITTED",
-            resourceType: "REQUEST",
+            action: "NOTIFICATION_PREFERENCES_CHANGED",
+            resourceType: "NOTIFICATION_PREFERENCES",
             occurredAt: "2026-10-03T10:00:00Z",
           },
         ],
@@ -196,7 +196,7 @@ try {
       };
     else if (p.endsWith("/audit-logs/a1"))
       body = {
-        entry: { action: "REQUEST_SUBMITTED", resourceType: "REQUEST" },
+        entry: { action: "NOTIFICATION_PREFERENCES_CHANGED", resourceType: "REQUEST" },
         oldValue: null,
         newValue: { version: 0 },
         snapshotRedacted: false,
@@ -266,10 +266,13 @@ try {
   await capture("policy-desktop");
   await page.getByRole("button", { name: "Audit logs", exact: true }).click();
   await page
-    .getByRole("button", { name: /REQUEST_SUBMITTED · REQUEST/ })
+    .getByRole("button", { name: /NOTIFICATION_PREFERENCES_CHANGED · NOTIFICATION_PREFERENCES/ })
     .click();
   await page.getByRole("heading", { name: "Selected evidence" }).waitFor();
   await capture("audit-desktop");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await capture("audit-mobile-long-action");
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.getByText("Retry logout", { exact: true }).waitFor();
   await capture("logout-error");

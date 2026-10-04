@@ -1,10 +1,12 @@
-# Proposed release pipeline — installation blocked
+# Installed release pipeline
 
-`ci-workflow.pending.yml` is reviewed source, **not** an active workflow. GitHub MCP
-rejected `.github/workflows/ci.yml` updates with HTTP 403 (workflow-write permission).
-The current repository CI still runs backend Maven verification, frontend lint/tests/build,
-and normal backend/frontend Docker builds on pull requests.
+The maintainer installed `.github/workflows/ci.yml` and `.github/workflows/codeql.yml`
+in PR #25. They are active on pull requests, main/hardening pushes and manual dispatch;
+CodeQL also has a weekly schedule. The `*.pending.yml` files are historical proposals,
+not the authoritative active workflow configuration. Earlier MCP workflow-write 403s
+record a historical installation limitation, not a current pipeline blocker.
 
+The installed CI includes:
 The proposed extension adds:
 
 1. SHA-pinned supported Actions and read-only repository token permissions.
@@ -17,26 +19,23 @@ The proposed extension adds:
 8. Trivy HIGH/CRITICAL application-image gates, including unfixed advisories; source-secret gate.
 9. Metric-only artifact upload, explicit removal of credentials/fixtures, disposable-volume teardown.
 
-The pipeline does not deploy to production or merge a PR. After an authorized workflow
-update, run it on this branch and require its checks before review/promotion. Branch protection
-and required checks also need repository-administrator verification; no such settings were changed.
+The pipeline does not deploy to production or merge a PR. Final PR checks passed before
+the maintainer merged PR #25. Merged-main CodeQL and frontend/backend/full-stack CI jobs passed. Exact evidence is recorded
+in [post-merge verification](../verification/post-merge-release.md). Require successful
+checks on each proposed revision. Branch protection/required-check settings still need
+repository-administrator verification; this review did not change those settings.
 
 Application-image scans cover backend/frontend. Local database/cache/broker/mail images require
 separate infrastructure review; do not describe a green application scan as a clean entire stack.
 The local PostgreSQL bookworm image scan has unresolved advisories. Production RDS/ElastiCache
 are managed-service designs, not proof those hosted services have been provisioned or reviewed.
 
-## Existing CodeQL failure (merge blocker)
+## Corrected CodeQL execution
 
-[Run 37141719211](https://github.com/sagarbagwe/gateflow/actions/runs/37141719211)
-failed: Java autobuild returned exit 1, and init warned about an unexpected
-`javascript-typescript` input. In the active YAML, the flow-style value
-`with: {languages: java-kotlin,javascript-typescript}` incorrectly creates a second
-mapping key rather than a two-language string.
-
-`codeql-workflow.pending.yml` replaces that with separate Java and TypeScript matrix
-jobs, supported SHA-pinned CodeQL v4, explicit Java 21 setup and the same Maven backend
-build path used by passing CI, plus no-build TypeScript analysis. Both pending workflows
-passed actionlint 1.7.12, but neither has been installed or executed as a corrected workflow.
-Autobuild failure is not a successful security analysis; uploading failure diagnostics is
-not a clean scan. Workflow-write access and a green corrected run are required before merge.
+The former [run 37141719211](https://github.com/sagarbagwe/gateflow/actions/runs/37141719211)
+failed Java autobuild and used an incorrectly formed flow-style language mapping.
+The installed workflow now uses separate Java/TypeScript matrix jobs, SHA-pinned
+CodeQL v4, explicit Java 21/Maven build and no-build TypeScript analysis.
+[Merged-main run 37181650973](https://github.com/sagarbagwe/gateflow/actions/runs/37181650973)
+completed successfully at SHA `c5753c878ee8953a732783be2ef59375e895063a`.
+The former execution failure is resolved; run success is not a claim of zero security alerts.

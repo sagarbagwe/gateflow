@@ -7,14 +7,18 @@ Configurable approval workflows with reliable execution and traceable decisions.
 
 ## Current hardening review
 
-All new changes are isolated on `hardening/m17-m20-verified` in
-[draft PR #25](https://github.com/sagarbagwe/gateflow/pull/25); **main and the hosted demo are unchanged**.
-[Branch verification](docs/verification/hardening.md) separates tested behavior from
-remaining production/operator gates. Current application images passed HIGH/CRITICAL scans,
-and the real approval flow, non-owner database runtime, local restore and authenticated
-business workload were tested. The extended CI installation is still blocked by
-GitHub workflow-write permission; the active CodeQL workflow also fails and its correction is pending. This is not production certification.
-
+[PR #25](https://github.com/sagarbagwe/gateflow/pull/25) was merged by the maintainer
+into `main` at `c5753c878ee8953a732783be2ef59375e895063a`.
+The extended full-stack CI and corrected Java/TypeScript CodeQL matrix are installed.
+The final PR checks passed; merged-main CodeQL passed and backend/frontend CI jobs passed.
+Merged-main full-stack CI also passed; see
+[post-merge verification](docs/verification/post-merge-release.md) for exact runs and live probes.
+[Hardening evidence](docs/verification/hardening.md) distinguishes measured engineering
+results from production/operator gates. The hosted login page is reachable, but the
+Railway backend aggregate health reports **503 / DOWN**. Frontend/backend deployed
+commit identity and authenticated read-only demo navigation passed with corrected credentials; live business
+write flows and deployed commit identity remain unverified. This is not
+production certification.
 ## Problem
 
 Purchase, software-access, and policy-exception approvals often disappear into
@@ -186,7 +190,7 @@ updates require explicit review and migration tests. Mailpit is a digest-pinned,
 unprivileged/read-only, bounded ephemeral mail capture sink with no relay configured.
 Flyway is a one-shot tools
 profile, not a long-running application. A one-node broker is not highly available.
-Backend/frontend Dockerfiles and the full local stack are implemented. A prepared CI update starts an isolated Compose environment and exercises an authenticated approval lifecycle; applying it is blocked by GitHub workflow-write permission. Backend/frontend application image scans passed for the reviewed runtime artifact. Infrastructure advisories and periodic rescanning remain release requirements.
+Backend/frontend Dockerfiles and the full local stack are implemented. The installed CI starts an isolated Compose environment and exercises an authenticated approval lifecycle, real-browser navigation, runtime-role restrictions, restore and application-image/source-secret gates. Backend/frontend application image scans passed for the reviewed runtime artifact. Infrastructure advisories and periodic rescanning remain release requirements.
 
 ## CI/CD
 

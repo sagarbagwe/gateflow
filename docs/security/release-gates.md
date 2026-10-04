@@ -5,7 +5,7 @@ Repository implementation and passing frontend checks are not production certifi
 | Gate                              | Current status                                                                                                            | Required evidence                                                                                                                                                  |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Frontend response hardening       | Headers configured; live public HTML observed with CSP/nosniff/referrer/frame/permissions and HTTPS HSTS after push | inspect responses after deployment and test authenticated pages for CSP violations                                                                                 |
-| Current CI and live revision      | branch build/test CI and manual runtime checks passed; CodeQL fails; workflow corrections blocked                                       | green frontend/backend/full-stack/CodeQL runs; deployed revision matches reviewed SHA                                                                              |
+| Current CI and live revision      | PR checks passed; corrected workflows installed; main CodeQL/backend/frontend/full-stack passed; live backend health 503/DOWN; deployed SHA unverified                                       | green frontend/backend/full-stack/CodeQL runs; deployed revision matches reviewed SHA                                                                              |
 | Database privilege separation     | proven on disposable stack; production rollout unverified                                                                                                                | migration owner separate from non-owner runtime role; negative DDL/direct audit-mutation tests; rotate and revoke old credentials                                  |
 | Email identity/delivery           | not configured or certified                                                                                               | verified address acceptance, verified SES/provider identity, suppression/bounce/complaint processing, abuse controls; external transport stays disabled until then |
 | Recovery                          | local restore and queue recovery passed; production failover/DR unverified                                                                                                                | isolated backup restore, failover, queue recovery and rollback rehearsal; measured RPO/RTO, not targets presented as facts                                         |
@@ -33,3 +33,10 @@ publicly enable Swagger to satisfy a checklist: docs are intentionally off by de
 that project's volumes afterwards. This script is not a production smoke tool.
 
 See [branch hardening evidence](../verification/hardening.md) for exact tested artifact, measured scope and remaining blockers.
+
+## Post-merge snapshot
+
+See [post-merge verification](../verification/post-merge-release.md). CodeQL installation
+and its former build failure are resolved, not current blockers. A successful CodeQL run
+means analysis executed; it does not prove zero code-scanning alerts. Live health/revision,
+operator controls and the remaining gates above must be verified independently.

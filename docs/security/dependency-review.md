@@ -34,8 +34,9 @@ MODERATE entries for the same test-only advisory:
   widening CI trust/network exposure, require a separately tested toolchain upgrade or
   upstream supported-line fix. Review again by 2026-11-03. PR reviewers must approve any exception.
 
-The proposed CI runs the all-dependency `npm audit --audit-level=high`, so development
-HIGH/CRITICAL findings also fail. This gate is still pending workflow-write permission.
+The installed CI runs all-dependency `npm audit --audit-level=high`, so development
+HIGH/CRITICAL findings also fail. The merged-main frontend job passed this gate and
+still reported the two MODERATE entries above. See [post-merge verification](../verification/post-merge-release.md).
 
 ## Infrastructure and scan coverage
 
@@ -45,8 +46,10 @@ original raw-report hash. Do not deploy that self-hosted image under a "clean st
 Redis/broker/mail/managed-service reviews are separate; local containers are not a certified
 AWS production environment. Application-image success does not close those gates.
 
-The agent's source-secret scan covers the source files available in its worktree, not every
-backend source file in GitHub. Complete repository coverage requires the proposed CI gate
-or an authorized checkout/repository scanner. Source-secret scanning is offline on purpose;
+The historical agent source-secret scan covered only its available worktree. The installed
+full-stack CI checks a complete repository checkout; the final PR full-stack jobs passed
+its source-secret gate. This is current-checkout coverage, not a scan of all Git history or
+proof that previously exposed secrets have been revoked. The merged-main full-stack rerun also passed; exact evidence
+is tracked separately in [post-merge verification](../verification/post-merge-release.md). Source-secret scanning is offline on purpose;
 resolving Maven dependency BOMs is neither required for secret detection nor proof of a
 runtime dependency scan. Secret findings/fixtures and private dumps must not be uploaded.

@@ -1,8 +1,11 @@
-# Branch-only hardening: milestones 13–17, 19 and 20
+# Hardening: milestones 13–17, 19 and 20
 
-Branch: `hardening/m17-m20-verified`. Review: [draft PR #25](https://github.com/sagarbagwe/gateflow/pull/25).
-No merge, main push or production deployment was performed. Base main revision:
-`f86dffc7ef69c10297a8b03757340751ad117206`.
+Original work branch: `hardening/m17-m20-verified`; base main:
+`f86dffc7ef69c10297a8b03757340751ad117206`. The agent did not merge that branch.
+The maintainer subsequently merged [PR #25](https://github.com/sagarbagwe/gateflow/pull/25)
+at `c5753c878ee8953a732783be2ef59375e895063a`, after passing final PR checks.
+See [post-merge verification](post-merge-release.md) for current pipeline and live-site status.
+The historical runtime measurements below retain their original artifact scope.
 
 ## Verification boundaries
 
@@ -16,7 +19,8 @@ it did not independently recompile the backend source in the agent worktree.
 
 Tests never touched the public Vercel deployment, external mailboxes, cloud accounts
 or real customer data. Local fixture users use `example.invalid` addresses; Mailpit
-captures local email only. Hosted demo and main remain unchanged and are not certified.
+captures local email only. These historical tests were performed before the maintainer merge; they do not certify
+the current hosted deployment. Subsequent read-only live probes are recorded separately.
 
 ## Verified results
 
@@ -31,7 +35,7 @@ captures local email only. Hosted demo and main remain unchanged and are not cer
 | Recovery | Final separate-database pg_dump/pg_restore drill passed schema/count checks for 10 users, 10 organizations, 721 requests, 720 decisions, 1,480 audit rows and 11 successful migrations. A real restored audit-row update was rejected. Coarse dump/restore elapsed time was one second, not a production RTO. |
 | Application images | Trivy 0.75.0 final backend/frontend scans: zero HIGH/CRITICAL findings. Includes unfixed advisories; no blanket ignore applied. Other severities, infrastructure and future advisories are separate concerns. |
 | Supply chain | Digest-pinned refreshed builder/runtime images; pinned fixed Nginx runtime packages; patched Jackson, RabbitMQ client, Netty, Tomcat and PostgreSQL JDBC lines; runtime CycloneDX SBOM retained. |
-| Source secrets | Offline source-secret scan passed for files available in the agent worktree. Full backend source was not materialized there: do not claim repository-wide secret coverage. The proposed full-repository CI gate remains pending installation. |
+| Source secrets | Offline source-secret scan passed for files available in the agent worktree. Full backend source was not materialized there: do not claim repository-wide secret coverage. The complete-checkout CI source-secret gate was subsequently installed and passed on the final PR; merged-main rerun status is recorded separately. |
 | Internal docs | OpenAPI stays disabled for authenticated access in the runtime-role overlay. Anonymous backend metrics remain 401. Public frontend SPA fallback is not a backend metrics probe. |
 | Performance | Real authenticated ten-VU, one-minute workload with successful submit/approve writes. See measured scope and limitations in [performance evidence](../performance/hardening-workload.md). |
 
@@ -46,17 +50,18 @@ scans and production npm audit provide their own distinct dependency evidence.
 
 - **13–16:** current backend CI, frontend regression checks, real isolated-stack/browser flow,
   health/security boundaries and Docker runtime reverified. No cloud telemetry certification.
-- **17:** existing build/test CI passes, but the separate CodeQL workflow fails; extended real-stack/browser/restore/security pipeline is prepared
-  and syntax-checked, but workflow installation is blocked by GitHub workflow-write 403.
+- **17:** extended real-stack/browser/restore/security CI and corrected CodeQL are installed.
+  Final PR checks passed; merged-main CodeQL/backend/frontend/full-stack passed. Branch-protection enforcement is unverified.
 - **19:** basic authenticated performance measurement and query review complete. No fabricated
   optimization claim. Representative staging capacity/soak/saturation testing remains a release gate.
 - **20:** code/image fixes, compatible development-tooling patches (zero HIGH/CRITICAL npm findings), runtime-role separation and local recovery
   verification implemented; production operational rollout/certification remains gated.
 
-## Remaining production/operator gates — do not merge/promote as certified
+## Remaining production/operator gates — do not promote as certified
 
-1. Grant authorized workflow-write access, install and run both pending CI/CodeQL workflows (active CodeQL fails), verify required
-   checks/branch protection and review latest branch CI before a human-approved merge.
+1. Merged-main full-stack CI is green. Verify required checks/branch protection, deployed
+   frontend/backend commit identity and live backend health. Public aggregate health
+   returned 503/DOWN in the post-merge review; investigate provider logs before promotion.
 2. Provision/review the actual deployment environment: ingress TLS/HSTS, secure cookies,
    secret storage/rotation, runtime DB/IAM least privilege, network isolation and rollback.
 3. Review local infrastructure advisories independently. The bookworm PostgreSQL image has
