@@ -243,6 +243,8 @@ The responsive SPA implements signup/login, organization selection, request sear
 
 ## Demo
 
+[Watch the 1080p GateFlow feature walkthrough](docs/demo/gateflow-feature-demo.mp4), or open the [demo video notes](docs/demo/README.md).
+
 [GateFlow hosted demo](https://gateflow-jade.vercel.app/). Public login/signup screens
 and same-origin CSRF/protected API responses were observed during the audit. This
 is not a claim that every authenticated production flow, deployment revision,
