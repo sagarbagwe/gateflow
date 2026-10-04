@@ -1,8 +1,11 @@
-# Branch-only hardening: milestones 13–17, 19 and 20
+# Verified hardening: milestones 13–17, 19 and 20
 
-Branch: `hardening/m17-m20-verified`. Review: [draft PR #25](https://github.com/sagarbagwe/gateflow/pull/25).
-No merge, main push or production deployment was performed. Base main revision:
-`f86dffc7ef69c10297a8b03757340751ad117206`.
+The work was reviewed in [PR #25](https://github.com/sagarbagwe/gateflow/pull/25) and merged to `main` as
+`c5753c878ee8953a732783be2ef59375e895063a`. Before merge, the installed frontend,
+backend, full-stack, Java/Kotlin CodeQL, JavaScript/TypeScript CodeQL, GitGuardian and
+Vercel checks all passed. Vercel and Railway then deployed the merge successfully, and
+public frontend/API/readiness smoke checks returned 200/200/UP. The original branch base
+was `f86dffc7ef69c10297a8b03757340751ad117206`.
 
 ## Verification boundaries
 
@@ -14,9 +17,10 @@ GitHub's archive digest before isolated runtime testing. [Artifact provenance](e
 records archive/JAR SHA256 values. Agent runtime used a temporary artifact-copy Dockerfile;
 it did not independently recompile the backend source in the agent worktree.
 
-Tests never touched the public Vercel deployment, external mailboxes, cloud accounts
-or real customer data. Local fixture users use `example.invalid` addresses; Mailpit
-captures local email only. Hosted demo and main remain unchanged and are not certified.
+The isolated verification did not use external mailboxes, cloud customer data or real
+identities. Fixture users use `example.invalid` addresses and Mailpit captures local email
+only. After the verified merge, only non-destructive public frontend/API/readiness smoke
+checks were run against the hosted demo; that does not certify the environment.
 
 ## Verified results
 
@@ -46,8 +50,7 @@ scans and production npm audit provide their own distinct dependency evidence.
 
 - **13–16:** current backend CI, frontend regression checks, real isolated-stack/browser flow,
   health/security boundaries and Docker runtime reverified. No cloud telemetry certification.
-- **17:** existing build/test CI passes, but the separate CodeQL workflow fails; extended real-stack/browser/restore/security pipeline is prepared
-  and syntax-checked, but workflow installation is blocked by GitHub workflow-write 403.
+- **17:** corrected CI and separate Java/Kotlin plus JavaScript/TypeScript CodeQL workflows are installed; frontend, backend, disposable full-stack, both CodeQL languages, GitGuardian and Vercel checks passed before merge.
 - **19:** basic authenticated performance measurement and query review complete. No fabricated
   optimization claim. Representative staging capacity/soak/saturation testing remains a release gate.
 - **20:** code/image fixes, compatible development-tooling patches (zero HIGH/CRITICAL npm findings), runtime-role separation and local recovery
@@ -55,8 +58,7 @@ scans and production npm audit provide their own distinct dependency evidence.
 
 ## Remaining production/operator gates — do not merge/promote as certified
 
-1. Grant authorized workflow-write access, install and run both pending CI/CodeQL workflows (active CodeQL fails), verify required
-   checks/branch protection and review latest branch CI before a human-approved merge.
+1. Keep the installed CI, full-stack, CodeQL and security checks required for protected-branch merges; periodically review action pins and runner behavior.
 2. Provision/review the actual deployment environment: ingress TLS/HSTS, secure cookies,
    secret storage/rotation, runtime DB/IAM least privilege, network isolation and rollback.
 3. Review local infrastructure advisories independently. The bookworm PostgreSQL image has
