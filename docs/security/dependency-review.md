@@ -34,8 +34,8 @@ MODERATE entries for the same test-only advisory:
   widening CI trust/network exposure, require a separately tested toolchain upgrade or
   upstream supported-line fix. Review again by 2026-11-03. PR reviewers must approve any exception.
 
-The proposed CI runs the all-dependency `npm audit --audit-level=high`, so development
-HIGH/CRITICAL findings also fail. This gate is still pending workflow-write permission.
+The installed CI runs the all-dependency `npm audit --audit-level=high`, so development
+HIGH/CRITICAL findings fail the frontend gate. The merged hardening revision passed it.
 
 ## Infrastructure and scan coverage
 
@@ -46,7 +46,6 @@ Redis/broker/mail/managed-service reviews are separate; local containers are not
 AWS production environment. Application-image success does not close those gates.
 
 The agent's source-secret scan covers the source files available in its worktree, not every
-backend source file in GitHub. Complete repository coverage requires the proposed CI gate
-or an authorized checkout/repository scanner. Source-secret scanning is offline on purpose;
+backend source file in GitHub. The installed full-repository CI security gate now supplies repository-wide coverage for each checked revision. Source-secret scanning is offline on purpose;
 resolving Maven dependency BOMs is neither required for secret detection nor proof of a
 runtime dependency scan. Secret findings/fixtures and private dumps must not be uploaded.

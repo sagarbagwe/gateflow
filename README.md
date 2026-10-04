@@ -7,13 +7,14 @@ Configurable approval workflows with reliable execution and traceable decisions.
 
 ## Current hardening review
 
-All new changes are isolated on `hardening/m17-m20-verified` in
-[draft PR #25](https://github.com/sagarbagwe/gateflow/pull/25); **main and the hosted demo are unchanged**.
-[Branch verification](docs/verification/hardening.md) separates tested behavior from
-remaining production/operator gates. Current application images passed HIGH/CRITICAL scans,
-and the real approval flow, non-owner database runtime, local restore and authenticated
-business workload were tested. The extended CI installation is still blocked by
-GitHub workflow-write permission; the active CodeQL workflow also fails and its correction is pending. This is not production certification.
+[PR #25](https://github.com/sagarbagwe/gateflow/pull/25) was merged as
+`c5753c878ee8953a732783be2ef59375e895063a` after the complete frontend, backend,
+full-stack, Java/Kotlin CodeQL, JavaScript/TypeScript CodeQL, GitGuardian and Vercel
+checks passed. The corrected CI and CodeQL workflows are installed on `main`.
+[Hardening verification](docs/verification/hardening.md) records the tested behavior
+and evidence. The hosted demo was redeployed successfully, but repository hardening
+and a healthy demo are not production certification; environment, recovery, email,
+onboarding and representative-capacity gates remain.
 
 ## Problem
 
@@ -186,11 +187,11 @@ updates require explicit review and migration tests. Mailpit is a digest-pinned,
 unprivileged/read-only, bounded ephemeral mail capture sink with no relay configured.
 Flyway is a one-shot tools
 profile, not a long-running application. A one-node broker is not highly available.
-Backend/frontend Dockerfiles and the full local stack are implemented. A prepared CI update starts an isolated Compose environment and exercises an authenticated approval lifecycle; applying it is blocked by GitHub workflow-write permission. Backend/frontend application image scans passed for the reviewed runtime artifact. Infrastructure advisories and periodic rescanning remain release requirements.
+Backend/frontend Dockerfiles and the full local stack are implemented. The installed CI workflow starts an isolated Compose environment and exercises an authenticated approval lifecycle, least-privilege runtime role, live browser flow, business smoke workload, restore drill and security gates. Backend/frontend application image scans passed for the reviewed runtime artifact. Infrastructure advisories and periodic rescanning remain release requirements.
 
 ## CI/CD
 
-GitHub Actions builds and tests the backend and frontend, builds both container images, uploads the JAR, and runs CodeQL. Dependabot covers Maven, npm, Actions, and Docker. Production deployment remains intentionally disabled pending explicit approval and environment controls.
+GitHub Actions builds and tests the backend and frontend, runs the disposable full stack, browser and business smoke flows, verifies recovery/security gates, uploads evidence, and runs separate Java/Kotlin and JavaScript/TypeScript CodeQL analysis. Dependabot covers Maven, npm, Actions and Docker. The hosted demo auto-deploys from `main`; broader production promotion remains gated by environment controls and operational certification.
 
 ## Performance
 
