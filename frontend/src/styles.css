@@ -696,6 +696,12 @@ pre {
 .card li {
   margin: 10px 0;
 }
+/* Long audit actions/resource labels must fit narrow cards without clipping. */
+.card li > button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .list article {
   grid-template-columns: 100px 1fr auto 44px 64px;
 }
