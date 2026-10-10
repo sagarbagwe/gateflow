@@ -100,7 +100,7 @@ jobs:
             grafana/k6:1.3.0@sha256:3ddc8b1a33a2c3d8edc6e99b6a762ae36cba08788463458f5e6a7703e14eb77d run --summary-export=/work/verification/k6-business-summary.json /work/scripts/performance-business.js
       - name: Disposable backup restore drill
         run: bash scripts/recovery-drill.sh
-      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with: { version: "v0.75.0", cache: true }
       - name: Application image and source-secret gates
         run: bash scripts/security-scan.sh
